@@ -18,13 +18,15 @@ interface TransactionListProps {
   showViewAll?: boolean;
   isLoading?: boolean;
   transactions?: Transaction[];
+  error?: string;
 }
 
 const TransactionList: React.FC<TransactionListProps> = ({ 
   limit, 
   showViewAll = true,
   isLoading = false,
-  transactions = []
+  transactions = [],
+  error
 }) => {
   const [filter, setFilter] = useState<'all' | 'income' | 'expense'>('all');
   
@@ -51,6 +53,18 @@ const TransactionList: React.FC<TransactionListProps> = ({
             <div className="h-16 bg-muted/30 rounded-lg"></div>
           </div>
         ))}
+      </div>
+    );
+  }
+  
+  if (error) {
+    return (
+      <div className="financial-card">
+        <h3 className="text-lg font-semibold mb-4">Transações</h3>
+        <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-800">
+          <p className="font-medium">Erro ao carregar transações</p>
+          <p className="text-sm">{error}</p>
+        </div>
       </div>
     );
   }
