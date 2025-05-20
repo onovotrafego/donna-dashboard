@@ -58,7 +58,7 @@ export const useAuthOperations = () => {
         userData = await checkUserByRemoteJid(trimmedRemotejid);
         console.log("[AUTH] User found by remotejid:", userData);
       } else {
-        const trimmedEmail = identifier.trim();
+        const trimmedEmail = identifier.trim().toLowerCase();
         
         if (!trimmedEmail) {
           setAuthError("Por favor, digite seu email");
@@ -75,15 +75,26 @@ export const useAuthOperations = () => {
         console.log("[AUTH] User found by email:", userData);
       }
       
+      if (!userData) {
+        console.error("[AUTH] No user data returned");
+        throw new Error(method === 'remotejid' ? "Usuário não encontrado" : "Email não encontrado");
+      }
+      
       setClienteData(userData);
       
       // Verificar se o usuário tem uma senha - lidar com casos null e "null"
-      const hasNoPassword = !userData.password_hash || userData.password_hash === "null" || userData.password_hash === "";
+      const hasNoPassword = !userData.password_hash || 
+                          userData.password_hash === "null" || 
+                          userData.password_hash === "";
+      
+      console.log("[AUTH] User password status:", hasNoPassword ? "No password" : "Has password", userData.password_hash);
       
       // Determinar próximo passo com base na existência de senha
       if (hasNoPassword) {
+        console.log("[AUTH] User needs to create password");
         setStep('createPassword');
       } else {
+        console.log("[AUTH] User has password, proceeding to login");
         setStep('enterPassword');
       }
       
@@ -138,8 +149,12 @@ export const useAuthOperations = () => {
       
       setLoading(true);
       
+      console.log("[AUTH] Creating password for user:", userId);
+      
       // Atualizar usuário com nova senha
       await createUserPassword(userId, password);
+      
+      console.log("[AUTH] Password created, setting session data");
       
       // Definir sessão de autenticação
       setSessionData(userId, clienteData.nome);
@@ -181,6 +196,9 @@ export const useAuthOperations = () => {
         return false;
       }
 
+      console.log("[AUTH] Attempting login with provided password for user:", clienteData.id);
+      console.log("[AUTH] User data:", JSON.stringify(clienteData));
+      
       // Verificação usando a função loginWithPassword 
       const isValid = await loginWithPassword(
         clienteData.id, 
@@ -189,6 +207,7 @@ export const useAuthOperations = () => {
       );
       
       if (!isValid) {
+        console.log("[AUTH] Password validation failed");
         setAuthError("Senha incorreta. Por favor, verifique e tente novamente.");
         toast({
           title: "Senha incorreta",
@@ -197,6 +216,8 @@ export const useAuthOperations = () => {
         });
         return false;
       }
+      
+      console.log("[AUTH] Password validated successfully, setting session");
       
       // Definir sessão de autenticação
       setSessionData(clienteData.id, clienteData.nome);

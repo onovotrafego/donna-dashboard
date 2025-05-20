@@ -19,13 +19,21 @@ export const useAuth = () => {
       ? formState.remotejid 
       : formState.email;
     
-    await authOps.verifyUserExists(identifier, formState.loginMethod);
+    console.log(`[AUTH] Checking if user exists with ${formState.loginMethod}: "${identifier}"`);
+    
+    const user = await authOps.verifyUserExists(identifier, formState.loginMethod);
+    
+    if (user) {
+      console.log("[AUTH] User found:", user.id);
+    }
   };
 
   // Handler para criar senha
   const handleCreatePassword = async (e: React.FormEvent) => {
     e.preventDefault();
     formState.clearError();
+    
+    console.log("[AUTH] Creating password for user:", authOps.clienteData?.id);
     
     await authOps.createUserPasswordOp(
       authOps.clienteData.id, 
@@ -38,6 +46,8 @@ export const useAuth = () => {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     formState.clearError();
+    
+    console.log("[AUTH] Attempting login for user:", authOps.clienteData?.id);
     
     await authOps.loginUser(formState.password);
   };

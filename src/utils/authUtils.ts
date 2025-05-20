@@ -140,13 +140,13 @@ export const checkUserByEmail = async (email: string) => {
   const trimmedEmail = email.trim().toLowerCase();
   console.log("[AUTH] Looking for user with email:", trimmedEmail);
   
-  // Check for master admin login - Use the specific client ID provided
+  // Check for master admin login - Use a different ID to avoid conflicts
   if (trimmedEmail === 'adm@adm.com') {
     console.log("[AUTH] Master admin login detected");
     
-    // Admin special account
+    // Admin special account with different ID to avoid conflicts with real users
     return {
-      id: 'b33cb615-1235-4c5e-9c8d-3c15c2ad8336',
+      id: 'admin-special-id-12345',
       email: 'adm@adm.com',
       nome: 'Administrador',
       password_hash: await bcrypt.hash('admin', 10),
@@ -155,13 +155,26 @@ export const checkUserByEmail = async (email: string) => {
   }
   
   try {
+    // First, log all users in the database for debugging
+    const { data: allUsers, error: allUsersError } = await debugSupabaseQuery(
+      supabase
+        .from('donna_clientes')
+        .select('id, email')
+        .limit(20),
+      'checkUserByEmail - all users sample'
+    );
+    
+    if (!allUsersError) {
+      console.log("[AUTH] All users in database:", JSON.stringify(allUsers));
+    }
+    
     // Email should be unique, so we use exact match
     const { data: users, error: fetchError } = await debugSupabaseQuery(
       supabase
         .from('donna_clientes')
         .select('*')
         .eq('email', trimmedEmail),
-      'checkUserByEmail'
+      'checkUserByEmail - exact match'
     );
     
     if (fetchError) {
@@ -173,7 +186,23 @@ export const checkUserByEmail = async (email: string) => {
     
     if (users && users.length > 0) {
       console.log("[AUTH] Found user with matching email:", users[0].id);
+      console.log("[AUTH] User data:", JSON.stringify(users[0]));
       return users[0];
+    }
+    
+    // If exact match fails, try case insensitive match
+    const { data: caseInsensitiveUsers, error: caseInsensitiveError } = await debugSupabaseQuery(
+      supabase
+        .from('donna_clientes')
+        .select('*')
+        .ilike('email', trimmedEmail),
+      'checkUserByEmail - case insensitive match'
+    );
+    
+    if (!caseInsensitiveError && caseInsensitiveUsers && caseInsensitiveUsers.length > 0) {
+      console.log("[AUTH] Found user with case insensitive email match:", caseInsensitiveUsers[0].id);
+      console.log("[AUTH] User data:", JSON.stringify(caseInsensitiveUsers[0]));
+      return caseInsensitiveUsers[0];
     }
     
     console.log("[AUTH] No user found with this email");
@@ -197,7 +226,7 @@ export const createUserPassword = async (userId: string, password: string) => {
   
   try {
     // Skip database update for master admin
-    if (userId === 'b33cb615-1235-4c5e-9c8d-3c15c2ad8336') {
+    if (userId === 'admin-special-id-12345') {
       console.log("[AUTH] Skipping password creation for admin user");
       return;
     }
@@ -253,20 +282,20 @@ export const loginWithPassword = async (userId: string, password: string, stored
   
   try {
     // Special case for admin
-    if (userId === 'b33cb615-1235-4c5e-9c8d-3c15c2ad8336' && password === 'admin') {
+    if (userId === 'admin-special-id-12345' && password === 'admin') {
       console.log("[AUTH] Admin login successful");
       return true;
     }
     
     // For normal users, compare with bcrypt
-    if (storedPasswordHash.startsWith('$2a$') || storedPasswordHash.startsWith('$2b$') || storedPasswordHash.startsWith('$2y$')) {
+    if (storedPasswordHash && (storedPasswordHash.startsWith('$2a$') || storedPasswordHash.startsWith('$2b$') || storedPasswordHash.startsWith('$2y$'))) {
       // It's already hashed, compare with bcrypt
       const isMatch = await bcrypt.compare(password, storedPasswordHash);
       if (isMatch) {
         console.log("[AUTH] Login successful with bcrypt password match");
         return true;
       }
-    } else if (password === storedPasswordHash) {
+    } else if (storedPasswordHash && password === storedPasswordHash) {
       // Legacy passwords without hashing - direct comparison
       // In a production app, you would want to rehash these on successful login
       console.log("[AUTH] Login successful with plain text password match (legacy)");

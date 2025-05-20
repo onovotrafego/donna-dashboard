@@ -29,14 +29,24 @@ export const debugSupabaseQuery = async (queryPromise, queryName) => {
     
     if (response.error) {
       console.error(`[SUPABASE] Error in query ${queryName}:`, response.error);
+      console.error(`[SUPABASE] Error details:`, JSON.stringify(response, null, 2));
     } else {
       console.log(`[SUPABASE] Query ${queryName} successful:`, response.data);
       console.log(`[SUPABASE] Rows returned: ${Array.isArray(response.data) ? response.data.length : (response.data ? 1 : 0)}`);
+      console.log(`[SUPABASE] Response details:`, JSON.stringify(response, null, 2));
     }
     
     return response;
   } catch (error) {
     console.error(`[SUPABASE] Exception in query ${queryName}:`, error);
+    console.error(`[SUPABASE] Request failed:`, error);
+    
+    // Try to provide more details about the error
+    if (error.message) console.error(`[SUPABASE] Error message: ${error.message}`);
+    if (error.status) console.error(`[SUPABASE] Status code: ${error.status}`);
+    if (error.url) console.error(`[SUPABASE] Request URL: ${error.url}`);
+    if (error.body) console.error(`[SUPABASE] Response body: ${error.body}`);
+    
     throw error;
   }
 };
