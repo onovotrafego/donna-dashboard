@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
@@ -42,8 +41,9 @@ const AuthPage: React.FC = () => {
       sessionStorage.clear();
       localStorage.clear();
       
+      // Use the updated checkUserByRemoteJid function which now uses LIKE query
       const userData = await checkUserByRemoteJid(trimmedRemotejid);
-      console.log("[AUTH] User found:", userData);
+      console.log("[AUTH] User found using LIKE query:", userData);
       setClienteData(userData);
       
       // Check if the user has a password - handle both null and "null" cases

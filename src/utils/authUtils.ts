@@ -1,53 +1,41 @@
 import { supabase } from '@/integrations/supabase/client';
 
-// Check if a user exists by their remotejid
+// Check if a user exists by their remotejid using LIKE query
 export const checkUserByRemoteJid = async (remotejid: string) => {
   // Clean the input and log for debugging
   const trimmedRemotejid = remotejid.trim();
   console.log("[AUTH] Looking for user with remotejid:", trimmedRemotejid);
   
   try {
-    // Get all users directly from the DB (bypass filtering which seems to be problematic)
-    const { data: allUsers, error: fetchError } = await supabase
+    // Use LIKE query to find matching users (more flexible than exact match)
+    const { data: matchingUsers, error: fetchError } = await supabase
       .from('donna_clientes')
       .select('*')
-      .limit(100); // Set a reasonable limit
+      .ilike('remotejid', `%${trimmedRemotejid}%`)
+      .limit(10); // Set a reasonable limit
     
     if (fetchError) {
       console.error("[AUTH] Error fetching users:", fetchError);
       throw new Error(`Erro ao acessar banco de dados: ${fetchError.message}`);
     }
     
-    console.log("[AUTH] Retrieved user count:", allUsers?.length || 0);
+    console.log("[AUTH] Retrieved user count using LIKE query:", matchingUsers?.length || 0);
     
-    // Manual matching - more reliable than Supabase filtering
-    if (allUsers && allUsers.length > 0) {
-      // Find exact match on trimmed values
-      const matchingUser = allUsers.find(user => 
+    // Check if we found any matching users
+    if (matchingUsers && matchingUsers.length > 0) {
+      // Find closest match - ideally an exact match if available
+      const exactMatch = matchingUsers.find(user => 
         user.remotejid && user.remotejid.trim() === trimmedRemotejid
       );
       
-      if (matchingUser) {
-        console.log("[AUTH] Found exact matching user:", matchingUser.id);
-        return matchingUser;
-      }
+      // If we have an exact match, use it; otherwise use the first match
+      const bestMatch = exactMatch || matchingUsers[0];
       
-      // Log detailed debugging info about all users
-      console.log("[AUTH] No exact match found. Available users:");
-      allUsers.forEach(user => {
-        if (user.remotejid) {
-          console.log(`[AUTH] User ${user.id}: remotejid="${user.remotejid}"`, 
-                    "Length:", user.remotejid.length, 
-                    "Value:", user.remotejid,
-                    "Trimmed:", user.remotejid.trim(),
-                    "Char codes:", Array.from(user.remotejid).map(c => c.charCodeAt(0)));
-        }
-      });
-    } else {
-      console.log("[AUTH] No users found in database");
+      console.log("[AUTH] Found matching user:", bestMatch.id);
+      return bestMatch;
     }
     
-    // If we got here, no matching user was found
+    console.log("[AUTH] No matching users found with LIKE query");
     throw new Error('Usuário não encontrado');
   } catch (error: any) {
     console.error("[AUTH] Error in checkUserByRemoteJid:", error);
