@@ -36,3 +36,32 @@ export const debugSupabaseQuery = async (queryPromise, queryName) => {
     throw error;
   }
 };
+
+// New token-based session management
+export const setAuthToken = (token: string, expiresIn = 86400) => {
+  const expiresAt = new Date(Date.now() + expiresIn * 1000).toISOString();
+  localStorage.setItem('auth_token', token);
+  localStorage.setItem('auth_expires_at', expiresAt);
+};
+
+export const getAuthToken = () => {
+  const token = localStorage.getItem('auth_token');
+  const expiresAt = localStorage.getItem('auth_expires_at');
+  
+  if (!token || !expiresAt) return null;
+  
+  if (new Date(expiresAt) < new Date()) {
+    // Token expired
+    clearAuthToken();
+    return null;
+  }
+  
+  return token;
+};
+
+export const clearAuthToken = () => {
+  localStorage.removeItem('auth_token');
+  localStorage.removeItem('auth_expires_at');
+  localStorage.removeItem('user_id');
+  localStorage.removeItem('user_name');
+};

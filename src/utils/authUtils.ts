@@ -1,4 +1,6 @@
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, setAuthToken, debugSupabaseQuery } from '@/integrations/supabase/client';
+import { v4 as uuidv4 } from 'uuid';
+import * as bcrypt from 'bcryptjs-react';
 
 // Check if a user exists by their remotejid with improved matching
 export const checkUserByRemoteJid = async (remotejid: string) => {
@@ -8,10 +10,13 @@ export const checkUserByRemoteJid = async (remotejid: string) => {
   
   try {
     // First try exact match (more efficient)
-    let { data: exactUsers, error: exactError } = await supabase
-      .from('donna_clientes')
-      .select('*')
-      .eq('remotejid', trimmedRemotejid);
+    const { data: exactUsers, error: exactError } = await debugSupabaseQuery(
+      supabase
+        .from('donna_clientes')
+        .select('*')
+        .eq('remotejid', trimmedRemotejid),
+      'checkUserByRemoteJid - exact match'
+    );
     
     if (exactError) {
       console.error("[AUTH] Error in exact match query:", exactError);
@@ -27,11 +32,14 @@ export const checkUserByRemoteJid = async (remotejid: string) => {
     }
     
     // Fall back to LIKE query if no exact match
-    const { data: likeUsers, error: likeError } = await supabase
-      .from('donna_clientes')
-      .select('*')
-      .ilike('remotejid', `%${trimmedRemotejid}%`)
-      .limit(10);
+    const { data: likeUsers, error: likeError } = await debugSupabaseQuery(
+      supabase
+        .from('donna_clientes')
+        .select('*')
+        .ilike('remotejid', `%${trimmedRemotejid}%`)
+        .limit(10),
+      'checkUserByRemoteJid - LIKE match'
+    );
     
     if (likeError) {
       console.error("[AUTH] Error in LIKE query:", likeError);
@@ -75,17 +83,20 @@ export const checkUserByEmail = async (email: string) => {
       id: 'b33cb615-1235-4c5e-9c8d-3c15c2ad8336',
       email: 'adm@adm.com',
       nome: 'Administrador',
-      password_hash: 'admin',
+      password_hash: await bcrypt.hash('admin', 10),
       completou_cadastro: true
     };
   }
   
   try {
     // Email should be unique, so we use exact match
-    const { data: users, error: fetchError } = await supabase
-      .from('donna_clientes')
-      .select('*')
-      .eq('email', trimmedEmail);
+    const { data: users, error: fetchError } = await debugSupabaseQuery(
+      supabase
+        .from('donna_clientes')
+        .select('*')
+        .eq('email', trimmedEmail),
+      'checkUserByEmail'
+    );
     
     if (fetchError) {
       console.error("[AUTH] Error fetching user by email:", fetchError);
@@ -114,63 +125,92 @@ export const checkUserByEmail = async (email: string) => {
   }
 };
 
-// Create a new password for the user
+// Create a new password for the user (with hashing)
 export const createUserPassword = async (userId: string, password: string) => {
   console.log("[AUTH] Creating password for user:", userId);
   
-  // Skip database update for master admin
-  if (userId === 'b33cb615-1235-4c5e-9c8d-3c15c2ad8336') {
-    console.log("[AUTH] Skipping password creation for admin user");
-    return;
-  }
+  try {
+    // Skip database update for master admin
+    if (userId === 'b33cb615-1235-4c5e-9c8d-3c15c2ad8336') {
+      console.log("[AUTH] Skipping password creation for admin user");
+      return;
+    }
 
-  const { error } = await supabase
-    .from('donna_clientes')
-    .update({ 
-      password_hash: password, 
-      completou_cadastro: true 
-    })
-    .eq('id', userId);
-  
-  if (error) {
-    console.error("[AUTH] Error creating password:", error);
-    throw new Error('Não foi possível definir sua senha');
+    // Hash the password before storing
+    const hashedPassword = await bcrypt.hash(password, 10);
+    
+    const { error } = await supabase
+      .from('donna_clientes')
+      .update({ 
+        password_hash: hashedPassword, 
+        completou_cadastro: true 
+      })
+      .eq('id', userId);
+    
+    if (error) {
+      console.error("[AUTH] Error creating password:", error);
+      throw new Error('Não foi possível definir sua senha');
+    }
+    
+    console.log("[AUTH] Password created successfully");
+  } catch (error: any) {
+    console.error("[AUTH] Error in createUserPassword:", error);
+    throw new Error(`Erro ao criar senha: ${error.message}`);
   }
-  
-  console.log("[AUTH] Password created successfully");
 };
 
-// Set user session data in browser storage
+// Set user session data in browser storage and create auth token
 export const setSessionData = (userId: string, userName: string) => {
   console.log("[AUTH] Setting session data for user:", userId, userName);
   
-  // Clear all browser storage to ensure no stale data
-  sessionStorage.clear();
-  localStorage.clear();
-  
-  // Set new session data
-  sessionStorage.setItem('user_id', userId);
-  sessionStorage.setItem('user_name', userName || 'Usuário');
-  
-  console.log("[AUTH] Session data set successfully");
+  try {
+    // Generate a simple token (in a real app you'd want to use JWT)
+    const token = uuidv4();
+    
+    // Set token in localStorage with 24h expiration
+    setAuthToken(token);
+    
+    // Set user data
+    localStorage.setItem('user_id', userId);
+    localStorage.setItem('user_name', userName || 'Usuário');
+    
+    console.log("[AUTH] Session data set successfully");
+  } catch (error) {
+    console.error("[AUTH] Error setting session data:", error);
+    throw new Error('Erro ao configurar sessão do usuário');
+  }
 };
 
-// Custom login function to handle both password authentication
-export const loginWithPassword = async (userId: string, password: string, storedPassword: string) => {
+// Custom login function with password comparison
+export const loginWithPassword = async (userId: string, password: string, storedPasswordHash: string) => {
   console.log("[AUTH] Attempting login for user:", userId);
   
-  // Special case for admin
-  if (userId === 'b33cb615-1235-4c5e-9c8d-3c15c2ad8336' && password === 'admin') {
-    console.log("[AUTH] Admin login successful");
-    return true;
+  try {
+    // Special case for admin
+    if (userId === 'b33cb615-1235-4c5e-9c8d-3c15c2ad8336' && password === 'admin') {
+      console.log("[AUTH] Admin login successful");
+      return true;
+    }
+    
+    // For normal users, compare with bcrypt
+    if (storedPasswordHash.startsWith('$2a$') || storedPasswordHash.startsWith('$2b$') || storedPasswordHash.startsWith('$2y$')) {
+      // It's already hashed, compare with bcrypt
+      const isMatch = await bcrypt.compare(password, storedPasswordHash);
+      if (isMatch) {
+        console.log("[AUTH] Login successful with bcrypt password match");
+        return true;
+      }
+    } else if (password === storedPasswordHash) {
+      // Legacy passwords without hashing - direct comparison
+      // In a production app, you would want to rehash these on successful login
+      console.log("[AUTH] Login successful with plain text password match (legacy)");
+      return true;
+    }
+    
+    console.log("[AUTH] Login failed - password mismatch");
+    return false;
+  } catch (error) {
+    console.error("[AUTH] Error comparing passwords:", error);
+    return false;
   }
-  
-  // For normal users, compare with password hash stored in DB
-  if (password === storedPassword) {
-    console.log("[AUTH] Login successful with password match");
-    return true;
-  }
-  
-  console.log("[AUTH] Login failed - password mismatch");
-  return false;
 };

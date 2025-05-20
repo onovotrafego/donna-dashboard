@@ -33,8 +33,10 @@ export const useAuthOperations = () => {
       setAuthError(null);
       
       // Limpar qualquer dado em cache
-      sessionStorage.clear();
-      localStorage.clear();
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('auth_expires_at');
+      localStorage.removeItem('user_id');
+      localStorage.removeItem('user_name');
       
       let userData;
       
@@ -109,28 +111,29 @@ export const useAuthOperations = () => {
 
   // Criar uma nova senha para o usuário
   const createUserPasswordOp = async (userId: string, password: string, confirmPassword: string) => {
-    setAuthError(null);
-    if (password !== confirmPassword) {
-      setAuthError("As senhas não coincidem");
-      toast({
-        title: "Senhas não coincidem",
-        description: "Por favor, confirme que as senhas são iguais",
-        variant: "destructive"
-      });
-      return false;
-    }
-    
-    if (password.length < 6) {
-      setAuthError("Sua senha deve ter pelo menos 6 caracteres");
-      toast({
-        title: "Senha muito curta",
-        description: "Sua senha deve ter pelo menos 6 caracteres",
-        variant: "destructive"
-      });
-      return false;
-    }
-    
     try {
+      setAuthError(null);
+      
+      if (password !== confirmPassword) {
+        setAuthError("As senhas não coincidem");
+        toast({
+          title: "Senhas não coincidem",
+          description: "Por favor, confirme que as senhas são iguais",
+          variant: "destructive"
+        });
+        return false;
+      }
+      
+      if (password.length < 6) {
+        setAuthError("Sua senha deve ter pelo menos 6 caracteres");
+        toast({
+          title: "Senha muito curta",
+          description: "Sua senha deve ter pelo menos 6 caracteres",
+          variant: "destructive"
+        });
+        return false;
+      }
+      
       setLoading(true);
       
       // Atualizar usuário com nova senha
@@ -165,6 +168,16 @@ export const useAuthOperations = () => {
     try {
       setLoading(true);
       setAuthError(null);
+
+      if (!password) {
+        setAuthError("Por favor, digite sua senha");
+        toast({
+          title: "Campo obrigatório",
+          description: "Por favor, digite sua senha",
+          variant: "destructive"
+        });
+        return false;
+      }
 
       // Verificação usando a função loginWithPassword 
       const isValid = await loginWithPassword(

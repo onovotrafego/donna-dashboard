@@ -1,8 +1,7 @@
 
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
-import { Session } from '@supabase/supabase-js';
+import { supabase, getAuthToken, clearAuthToken } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
 interface User {
@@ -14,53 +13,68 @@ interface AuthContextProps {
   user: User | null;
   loading: boolean;
   logout: () => void;
-  session: Session | null;
+  isAuthenticated: boolean;
 }
 
 const AuthContext = createContext<AuthContextProps>({
   user: null,
   loading: true,
   logout: () => {},
-  session: null
+  isAuthenticated: false
 });
 
 export const useAuth = () => useContext(AuthContext);
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  // Initialize auth state and set up listener
+  // Load user from local storage on initial render
   useEffect(() => {
-    // For custom session management (since we're not using Supabase auth fully)
-    // Check for session from storage
-    const checkUserSession = () => {
-      const userId = sessionStorage.getItem('user_id');
-      const userName = sessionStorage.getItem('user_name');
-      
-      if (userId && userName) {
-        console.log('[AUTH] Found user in session storage:', userId, userName);
-        setUser({ id: userId, name: userName });
+    const loadUser = () => {
+      try {
+        const token = getAuthToken();
+        
+        if (!token) {
+          setUser(null);
+          setIsAuthenticated(false);
+          setLoading(false);
+          return;
+        }
+        
+        const userId = localStorage.getItem('user_id');
+        const userName = localStorage.getItem('user_name');
+        
+        if (userId && userName) {
+          console.log('[AUTH] Restored user session:', userId, userName);
+          setUser({ id: userId, name: userName });
+          setIsAuthenticated(true);
+        } else {
+          console.log('[AUTH] Invalid user data in session');
+          clearAuthToken(); // Clean up invalid session
+          setUser(null);
+          setIsAuthenticated(false);
+        }
+      } catch (error) {
+        console.error('[AUTH] Error loading user session:', error);
+        clearAuthToken(); // Clean up on error
+        setUser(null);
+        setIsAuthenticated(false);
+      } finally {
         setLoading(false);
-        return true;
       }
-      
-      console.log('[AUTH] No user found in session storage');
-      setUser(null);
-      setLoading(false);
-      return false;
     };
     
-    checkUserSession();
+    loadUser();
     
-    // Set up a window storage event listener for multi-tab synchronization
+    // Set up a storage event listener for multi-tab synchronization
     const handleStorageChange = (event) => {
-      if (event.key === 'user_id' || event.key === null) {
+      if (event.key === 'auth_token' || event.key === 'user_id' || event.key === null) {
         console.log('[AUTH] Storage change detected, updating auth state');
-        checkUserSession();
+        loadUser();
       }
     };
     
@@ -73,13 +87,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const logout = async () => {
     try {
-      // For our custom auth, just clear session storage
-      sessionStorage.removeItem('user_id');
-      sessionStorage.removeItem('user_name');
-      localStorage.clear();
-      
+      clearAuthToken();
       setUser(null);
-      setSession(null);
+      setIsAuthenticated(false);
       
       toast({
         title: "Desconectado",
@@ -98,7 +108,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, logout, session }}>
+    <AuthContext.Provider value={{ user, loading, logout, isAuthenticated }}>
       {children}
     </AuthContext.Provider>
   );
@@ -106,12 +116,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
 // Protected route component
 export const RequireAuth: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const { user, loading } = useAuth();
+  const { isAuthenticated, loading } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
 
   useEffect(() => {
-    if (!loading && !user) {
+    if (!loading && !isAuthenticated) {
       toast({
         title: "Acesso não autorizado",
         description: "Por favor, faça login para acessar esta página.",
@@ -119,7 +129,7 @@ export const RequireAuth: React.FC<{ children: ReactNode }> = ({ children }) => 
       });
       navigate('/auth');
     }
-  }, [user, loading, navigate, toast]);
+  }, [isAuthenticated, loading, navigate, toast]);
 
   if (loading) {
     return (
@@ -129,5 +139,5 @@ export const RequireAuth: React.FC<{ children: ReactNode }> = ({ children }) => 
     );
   }
 
-  return user ? <>{children}</> : null;
+  return isAuthenticated ? <>{children}</> : null;
 };
