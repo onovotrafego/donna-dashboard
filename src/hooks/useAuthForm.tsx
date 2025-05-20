@@ -11,6 +11,7 @@ export const useAuthForm = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loginMethod, setLoginMethod] = useState<'remotejid' | 'email'>('remotejid');
+  const [formError, setFormError] = useState<string | null>(null);
 
   // Função para resetar todos os campos do formulário
   const resetForm = () => {
@@ -18,6 +19,12 @@ export const useAuthForm = () => {
     setEmail('');
     setPassword('');
     setConfirmPassword('');
+    setFormError(null);
+  };
+
+  // Limpar erro específico
+  const clearError = () => {
+    setFormError(null);
   };
 
   return {
@@ -33,6 +40,9 @@ export const useAuthForm = () => {
     setShowPassword,
     loginMethod,
     setLoginMethod,
-    resetForm
+    formError,
+    setFormError,
+    resetForm,
+    clearError
   };
 };

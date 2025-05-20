@@ -35,53 +35,49 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   // Initialize auth state and set up listener
   useEffect(() => {
-    // First set up the auth state change listener
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, currentSession) => {
-        setSession(currentSession);
-        
-        if (currentSession) {
-          const userId = currentSession.user.id;
-          const userName = sessionStorage.getItem('user_name') || 'Usuário';
-          
-          setUser({ id: userId, name: userName });
-          console.log('[AUTH] Session updated from auth state change', userId);
-        } else {
-          setUser(null);
-          console.log('[AUTH] No session in auth state change');
-        }
-      }
-    );
-
+    // For custom session management (since we're not using Supabase auth fully)
     // Check for session from storage
-    const userId = sessionStorage.getItem('user_id');
-    const userName = sessionStorage.getItem('user_name');
-    
-    if (userId && userName) {
-      console.log('[AUTH] Found user in session storage:', userId);
-      setUser({ id: userId, name: userName });
+    const checkUserSession = () => {
+      const userId = sessionStorage.getItem('user_id');
+      const userName = sessionStorage.getItem('user_name');
       
-      // Debug - check if there's any session data in Supabase
-      supabase.auth.getSession().then(({ data }) => {
-        console.log('[AUTH] Current Supabase session:', data.session);
-        setSession(data.session);
-      });
-    } else {
+      if (userId && userName) {
+        console.log('[AUTH] Found user in session storage:', userId, userName);
+        setUser({ id: userId, name: userName });
+        setLoading(false);
+        return true;
+      }
+      
       console.log('[AUTH] No user found in session storage');
-    }
+      setUser(null);
+      setLoading(false);
+      return false;
+    };
     
-    setLoading(false);
+    checkUserSession();
+    
+    // Set up a window storage event listener for multi-tab synchronization
+    const handleStorageChange = (event) => {
+      if (event.key === 'user_id' || event.key === null) {
+        console.log('[AUTH] Storage change detected, updating auth state');
+        checkUserSession();
+      }
+    };
+    
+    window.addEventListener('storage', handleStorageChange);
     
     return () => {
-      subscription.unsubscribe();
+      window.removeEventListener('storage', handleStorageChange);
     };
   }, []);
 
   const logout = async () => {
     try {
-      await supabase.auth.signOut();
+      // For our custom auth, just clear session storage
       sessionStorage.removeItem('user_id');
       sessionStorage.removeItem('user_name');
+      localStorage.clear();
+      
       setUser(null);
       setSession(null);
       

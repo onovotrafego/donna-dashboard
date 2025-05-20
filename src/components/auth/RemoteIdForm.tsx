@@ -9,13 +9,15 @@ interface RemoteIdFormProps {
   setRemotejid: (value: string) => void;
   loading: boolean;
   onSubmit: (e: React.FormEvent) => Promise<void>;
+  error?: string;
 }
 
 const RemoteIdForm: React.FC<RemoteIdFormProps> = ({
   remotejid,
   setRemotejid,
   loading,
-  onSubmit
+  onSubmit,
+  error
 }) => {
   return (
     <form onSubmit={onSubmit} className="space-y-4">
@@ -29,6 +31,12 @@ const RemoteIdForm: React.FC<RemoteIdFormProps> = ({
           required
         />
       </div>
+      
+      {error && (
+        <div className="text-sm text-red-500 font-medium">
+          {error}
+        </div>
+      )}
       
       <Button 
         type="submit" 

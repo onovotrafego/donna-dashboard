@@ -70,48 +70,14 @@ export const checkUserByEmail = async (email: string) => {
   if (trimmedEmail === 'adm@adm.com') {
     console.log("[AUTH] Master admin login detected");
     
-    // We'll now fetch a real user with the specified ID to view its data
-    const ADMIN_REAL_DATA_CLIENT_ID = 'b33cb615-1235-4c5e-9c8d-3c15c2ad8336';
-    
-    try {
-      const { data: realClient, error } = await supabase
-        .from('donna_clientes')
-        .select('*')
-        .eq('id', ADMIN_REAL_DATA_CLIENT_ID)
-        .single();
-      
-      if (error || !realClient) {
-        console.error("[AUTH] Error fetching real client data for admin:", error);
-        // Fall back to static admin data if real client fetch fails
-        return {
-          id: ADMIN_REAL_DATA_CLIENT_ID, // Use the real client ID
-          email: 'adm@adm.com',
-          nome: 'Administrador',
-          password_hash: 'admin',
-          completou_cadastro: true
-        };
-      }
-      
-      console.log("[AUTH] Successfully fetched real client data for admin:", realClient);
-      
-      // Return the real client data but keep admin credentials for login
-      return {
-        ...realClient,
-        email: 'adm@adm.com',
-        nome: 'Administrador',
-        password_hash: 'admin'
-      };
-    } catch (err) {
-      console.error("[AUTH] Error in admin data fetch:", err);
-      // Fall back to static admin data with real client ID
-      return {
-        id: ADMIN_REAL_DATA_CLIENT_ID,
-        email: 'adm@adm.com',
-        nome: 'Administrador',
-        password_hash: 'admin',
-        completou_cadastro: true
-      };
-    }
+    // Admin special account
+    return {
+      id: 'b33cb615-1235-4c5e-9c8d-3c15c2ad8336',
+      email: 'adm@adm.com',
+      nome: 'Administrador',
+      password_hash: 'admin',
+      completou_cadastro: true
+    };
   }
   
   try {
@@ -150,6 +116,8 @@ export const checkUserByEmail = async (email: string) => {
 
 // Create a new password for the user
 export const createUserPassword = async (userId: string, password: string) => {
+  console.log("[AUTH] Creating password for user:", userId);
+  
   // Skip database update for master admin
   if (userId === 'b33cb615-1235-4c5e-9c8d-3c15c2ad8336') {
     console.log("[AUTH] Skipping password creation for admin user");
@@ -165,12 +133,17 @@ export const createUserPassword = async (userId: string, password: string) => {
     .eq('id', userId);
   
   if (error) {
+    console.error("[AUTH] Error creating password:", error);
     throw new Error('Não foi possível definir sua senha');
   }
+  
+  console.log("[AUTH] Password created successfully");
 };
 
 // Set user session data in browser storage
 export const setSessionData = (userId: string, userName: string) => {
+  console.log("[AUTH] Setting session data for user:", userId, userName);
+  
   // Clear all browser storage to ensure no stale data
   sessionStorage.clear();
   localStorage.clear();
@@ -178,4 +151,26 @@ export const setSessionData = (userId: string, userName: string) => {
   // Set new session data
   sessionStorage.setItem('user_id', userId);
   sessionStorage.setItem('user_name', userName || 'Usuário');
+  
+  console.log("[AUTH] Session data set successfully");
+};
+
+// Custom login function to handle both password authentication
+export const loginWithPassword = async (userId: string, password: string, storedPassword: string) => {
+  console.log("[AUTH] Attempting login for user:", userId);
+  
+  // Special case for admin
+  if (userId === 'b33cb615-1235-4c5e-9c8d-3c15c2ad8336' && password === 'admin') {
+    console.log("[AUTH] Admin login successful");
+    return true;
+  }
+  
+  // For normal users, compare with password hash stored in DB
+  if (password === storedPassword) {
+    console.log("[AUTH] Login successful with password match");
+    return true;
+  }
+  
+  console.log("[AUTH] Login failed - password mismatch");
+  return false;
 };

@@ -13,6 +13,7 @@ export const useAuth = () => {
   // Handler para verificar existência do usuário
   const checkUserExists = async (e: React.FormEvent) => {
     e.preventDefault();
+    formState.clearError();
     
     const identifier = formState.loginMethod === 'remotejid' 
       ? formState.remotejid 
@@ -24,6 +25,8 @@ export const useAuth = () => {
   // Handler para criar senha
   const handleCreatePassword = async (e: React.FormEvent) => {
     e.preventDefault();
+    formState.clearError();
+    
     await authOps.createUserPasswordOp(
       authOps.clienteData.id, 
       formState.password, 
@@ -34,6 +37,8 @@ export const useAuth = () => {
   // Handler para login
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    formState.clearError();
+    
     await authOps.loginUser(formState.password);
   };
 

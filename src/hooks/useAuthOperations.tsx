@@ -6,7 +6,8 @@ import {
   checkUserByRemoteJid, 
   checkUserByEmail, 
   createUserPassword, 
-  setSessionData 
+  setSessionData,
+  loginWithPassword
 } from '@/utils/authUtils';
 
 type AuthStep = 'checkUser' | 'createPassword' | 'enterPassword';
@@ -18,6 +19,7 @@ export const useAuthOperations = () => {
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState<AuthStep>('checkUser');
   const [clienteData, setClienteData] = useState<any>(null);
+  const [authError, setAuthError] = useState<string | null>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -28,6 +30,7 @@ export const useAuthOperations = () => {
   ) => {
     try {
       setLoading(true);
+      setAuthError(null);
       
       // Limpar qualquer dado em cache
       sessionStorage.clear();
@@ -40,6 +43,7 @@ export const useAuthOperations = () => {
         const trimmedRemotejid = identifier.trim();
         
         if (!trimmedRemotejid) {
+          setAuthError("Por favor, digite seu ID de usuário");
           toast({
             title: "Campo obrigatório",
             description: "Por favor, digite seu ID de usuário",
@@ -54,6 +58,7 @@ export const useAuthOperations = () => {
         const trimmedEmail = identifier.trim();
         
         if (!trimmedEmail) {
+          setAuthError("Por favor, digite seu email");
           toast({
             title: "Campo obrigatório",
             description: "Por favor, digite seu email",
@@ -67,12 +72,6 @@ export const useAuthOperations = () => {
       }
       
       setClienteData(userData);
-      
-      // Tratamento especial para conta de administrador master
-      if (userData.id === 'admin-master') {
-        setStep('enterPassword');
-        return userData;
-      }
       
       // Verificar se o usuário tem uma senha - lidar com casos null e "null"
       const hasNoPassword = !userData.password_hash || userData.password_hash === "null" || userData.password_hash === "";
@@ -94,12 +93,10 @@ export const useAuthOperations = () => {
           : "Não encontramos um usuário com este email. Verifique e tente novamente."
         : "Ocorreu um erro durante a verificação. Tente novamente.";
       
-      const errorTitle = error.message === "Usuário não encontrado" || error.message === "Email não encontrado"
-        ? method === 'remotejid' ? "Usuário não encontrado" : "Email não encontrado"
-        : "Erro no sistema";
+      setAuthError(errorMessage);
       
       toast({
-        title: errorTitle,
+        title: method === 'remotejid' ? "Usuário não encontrado" : "Email não encontrado",
         description: errorMessage,
         variant: "destructive"
       });
@@ -112,7 +109,9 @@ export const useAuthOperations = () => {
 
   // Criar uma nova senha para o usuário
   const createUserPasswordOp = async (userId: string, password: string, confirmPassword: string) => {
+    setAuthError(null);
     if (password !== confirmPassword) {
+      setAuthError("As senhas não coincidem");
       toast({
         title: "Senhas não coincidem",
         description: "Por favor, confirme que as senhas são iguais",
@@ -122,6 +121,7 @@ export const useAuthOperations = () => {
     }
     
     if (password.length < 6) {
+      setAuthError("Sua senha deve ter pelo menos 6 caracteres");
       toast({
         title: "Senha muito curta",
         description: "Sua senha deve ter pelo menos 6 caracteres",
@@ -148,6 +148,7 @@ export const useAuthOperations = () => {
       return true;
     } catch (error: any) {
       console.error('Create password error:', error);
+      setAuthError("Ocorreu um erro ao criar sua senha. Tente novamente.");
       toast({
         title: "Erro no sistema",
         description: "Ocorreu um erro ao criar sua senha. Tente novamente.",
@@ -163,32 +164,17 @@ export const useAuthOperations = () => {
   const loginUser = async (password: string) => {
     try {
       setLoading(true);
+      setAuthError(null);
 
-      // Verificação especial para admin master
-      if (clienteData.id === 'admin-master') {
-        if (password === 'admin') {
-          // Definir sessão de administrador com ID do cliente real para dados
-          setSessionData('b33cb615-1235-4c5e-9c8d-3c15c2ad8336', 'Administrador');
-          
-          toast({
-            title: "Login administrador realizado",
-            description: "Bem-vindo ao painel administrativo."
-          });
-          
-          navigate('/');
-          return true;
-        } else {
-          toast({
-            title: "Senha incorreta",
-            description: "Senha de administrador inválida.",
-            variant: "destructive"
-          });
-          return false;
-        }
-      }
+      // Verificação usando a função loginWithPassword 
+      const isValid = await loginWithPassword(
+        clienteData.id, 
+        password, 
+        clienteData.password_hash
+      );
       
-      // Verificação de usuário regular
-      if (clienteData.password_hash !== password) {
+      if (!isValid) {
+        setAuthError("Senha incorreta. Por favor, verifique e tente novamente.");
         toast({
           title: "Senha incorreta",
           description: "Por favor, verifique sua senha e tente novamente.",
@@ -209,6 +195,7 @@ export const useAuthOperations = () => {
       return true;
     } catch (error: any) {
       console.error('Login error:', error);
+      setAuthError("Ocorreu um erro durante o login. Tente novamente.");
       toast({
         title: "Erro no sistema",
         description: "Ocorreu um erro durante o login. Tente novamente.",
@@ -225,6 +212,8 @@ export const useAuthOperations = () => {
     step,
     setStep,
     clienteData,
+    authError,
+    setAuthError,
     verifyUserExists,
     createUserPasswordOp,
     loginUser

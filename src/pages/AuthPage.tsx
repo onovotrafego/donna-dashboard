@@ -24,6 +24,8 @@ const AuthPage: React.FC = () => {
     setShowPassword,
     loginMethod,
     setLoginMethod,
+    authError,
+    formError,
     checkUserExists,
     handleCreatePassword,
     handleLogin
@@ -46,6 +48,7 @@ const AuthPage: React.FC = () => {
                 setRemotejid={setRemotejid}
                 loading={loading}
                 onSubmit={checkUserExists}
+                error={loginMethod === 'remotejid' ? authError || formError || null : null}
               />
             }
             emailForm={
@@ -54,6 +57,7 @@ const AuthPage: React.FC = () => {
                 setEmail={setEmail}
                 loading={loading}
                 onSubmit={checkUserExists}
+                error={loginMethod === 'email' ? authError || formError || null : null}
               />
             }
           />
@@ -70,6 +74,7 @@ const AuthPage: React.FC = () => {
             loading={loading}
             onSubmit={handleCreatePassword}
             onBack={() => setStep('checkUser')}
+            error={authError || formError || null}
           />
         )}
         
@@ -82,6 +87,7 @@ const AuthPage: React.FC = () => {
             loading={loading}
             onSubmit={handleLogin}
             onBack={() => setStep('checkUser')}
+            error={authError || formError || null}
           />
         )}
       </div>

@@ -13,6 +13,7 @@ interface LoginFormProps {
   loading: boolean;
   onSubmit: (e: React.FormEvent) => Promise<void>;
   onBack: () => void;
+  error?: string;
 }
 
 const LoginForm: React.FC<LoginFormProps> = ({
@@ -22,7 +23,8 @@ const LoginForm: React.FC<LoginFormProps> = ({
   setShowPassword,
   loading,
   onSubmit,
-  onBack
+  onBack,
+  error
 }) => {
   return (
     <form onSubmit={onSubmit} className="space-y-4">
@@ -52,6 +54,12 @@ const LoginForm: React.FC<LoginFormProps> = ({
           </button>
         </div>
       </div>
+      
+      {error && (
+        <div className="text-sm text-red-500 font-medium">
+          {error}
+        </div>
+      )}
       
       <Button 
         type="submit" 

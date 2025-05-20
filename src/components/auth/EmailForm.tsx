@@ -9,13 +9,15 @@ interface EmailFormProps {
   setEmail: (value: string) => void;
   loading: boolean;
   onSubmit: (e: React.FormEvent) => Promise<void>;
+  error?: string;
 }
 
 const EmailForm: React.FC<EmailFormProps> = ({
   email,
   setEmail,
   loading,
-  onSubmit
+  onSubmit,
+  error
 }) => {
   return (
     <form onSubmit={onSubmit} className="space-y-4">
@@ -30,6 +32,12 @@ const EmailForm: React.FC<EmailFormProps> = ({
           required
         />
       </div>
+      
+      {error && (
+        <div className="text-sm text-red-500 font-medium">
+          {error}
+        </div>
+      )}
       
       <Button 
         type="submit" 
