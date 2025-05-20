@@ -7,6 +7,7 @@ import TransactionList from '@/components/dashboard/TransactionList';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import type { Transaction } from '@/components/dashboard/TransactionList';
 
 const Index: React.FC = () => {
   const { user } = useAuth();
@@ -25,14 +26,27 @@ const Index: React.FC = () => {
         
       if (error) throw error;
       
-      return data.map((item: any) => ({
-        id: item.id,
-        title: item.descricao || 'Sem descrição',
-        category: item.classificacao || 'Não classificado',
-        amount: parseFloat(item.valor) || 0,
-        date: item.created_at,
-        type: item.natureza === 'ENTRADA' ? 'income' : 'expense'
-      }));
+      return data.map((item: any) => {
+        // Explicitly map the natureza value to the correct transaction type
+        let transactionType: 'income' | 'expense';
+        if (item.natureza === 'ENTRADA') {
+          transactionType = 'income';
+        } else if (item.natureza === 'DESPESA' || item.natureza === 'SAÍDA') {
+          transactionType = 'expense';
+        } else {
+          // Default fallback
+          transactionType = 'expense';
+        }
+        
+        return {
+          id: item.id,
+          title: item.descricao || 'Sem descrição',
+          category: item.classificacao || 'Não classificado',
+          amount: parseFloat(item.valor) || 0,
+          date: item.created_at,
+          type: transactionType
+        };
+      });
     },
     enabled: !!user
   });
