@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -22,7 +21,10 @@ const AuthPage: React.FC = () => {
   const checkUserExists = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!remotejid) {
+    // Trim the remotejid only when submitting
+    const trimmedRemotejid = remotejid.trim();
+    
+    if (!trimmedRemotejid) {
       toast({
         title: "Campo obrigatório",
         description: "Por favor, digite seu ID de usuário",
@@ -34,14 +36,17 @@ const AuthPage: React.FC = () => {
     try {
       setLoading(true);
       
-      // Log the remotejid for debugging
-      console.log("Checking remotejid:", remotejid);
+      // Enhanced debugging
+      console.log("Checking remotejid before trim:", remotejid);
+      console.log("Checking remotejid after trim:", trimmedRemotejid);
+      console.log("Remotejid length:", trimmedRemotejid.length);
+      console.log("Character codes:", Array.from(trimmedRemotejid).map(c => c.charCodeAt(0)));
       
-      // Use maybeSingle() instead of single() to avoid the error when no rows are found
+      // Use the trimmed value for the query
       const { data, error } = await supabase
         .from('donna_clientes')
         .select('*')
-        .eq('remotejid', remotejid.trim())
+        .eq('remotejid', trimmedRemotejid)
         .maybeSingle();
       
       console.log("Query result:", data, error);
@@ -57,6 +62,15 @@ const AuthPage: React.FC = () => {
       }
       
       if (!data) {
+        console.log("No user found with remotejid:", trimmedRemotejid);
+        // Check in database directly for debugging
+        const { data: allUsers, error: listError } = await supabase
+          .from('donna_clientes')
+          .select('remotejid')
+          .limit(10);
+        
+        console.log("Available users in DB:", allUsers, listError);
+        
         toast({
           title: "Usuário não encontrado",
           description: "Não encontramos um usuário com este ID. Verifique e tente novamente.",
@@ -199,7 +213,7 @@ const AuthPage: React.FC = () => {
           id="remotejid"
           placeholder="Digite seu ID de usuário"
           value={remotejid}
-          onChange={(e) => setRemotejid(e.target.value.trim())}
+          onChange={(e) => setRemotejid(e.target.value)}
           required
         />
       </div>
