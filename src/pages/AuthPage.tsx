@@ -1,18 +1,20 @@
+
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Eye, EyeOff } from 'lucide-react';
+import { checkUserByRemoteJid, createUserPassword, setSessionData } from '@/utils/authUtils';
+import UserIdForm from '@/components/auth/UserIdForm';
+import CreatePasswordForm from '@/components/auth/CreatePasswordForm';
+import LoginForm from '@/components/auth/LoginForm';
+
+type AuthStep = 'checkUser' | 'createPassword' | 'enterPassword';
 
 const AuthPage: React.FC = () => {
   const [remotejid, setRemotejid] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const [step, setStep] = useState<'checkUser' | 'createPassword' | 'enterPassword'>('checkUser');
+  const [step, setStep] = useState<AuthStep>('checkUser');
   const [showPassword, setShowPassword] = useState(false);
   const [clienteData, setClienteData] = useState<any>(null);
   const navigate = useNavigate();
@@ -36,54 +38,12 @@ const AuthPage: React.FC = () => {
     try {
       setLoading(true);
       
-      // Enhanced debugging
-      console.log("Checking remotejid before trim:", remotejid);
-      console.log("Checking remotejid after trim:", trimmedRemotejid);
-      console.log("Remotejid length:", trimmedRemotejid.length);
-      console.log("Character codes:", Array.from(trimmedRemotejid).map(c => c.charCodeAt(0)));
-      
-      // Use the trimmed value for the query
-      const { data, error } = await supabase
-        .from('donna_clientes')
-        .select('*')
-        .eq('remotejid', trimmedRemotejid)
-        .maybeSingle();
-      
-      console.log("Query result:", data, error);
-      
-      if (error) {
-        console.error("Error details:", error);
-        toast({
-          title: "Erro ao verificar usuário",
-          description: "Ocorreu um erro ao verificar o usuário. Tente novamente.",
-          variant: "destructive"
-        });
-        return;
-      }
-      
-      if (!data) {
-        console.log("No user found with remotejid:", trimmedRemotejid);
-        // Check in database directly for debugging
-        const { data: allUsers, error: listError } = await supabase
-          .from('donna_clientes')
-          .select('remotejid')
-          .limit(10);
-        
-        console.log("Available users in DB:", allUsers, listError);
-        
-        toast({
-          title: "Usuário não encontrado",
-          description: "Não encontramos um usuário com este ID. Verifique e tente novamente.",
-          variant: "destructive"
-        });
-        return;
-      }
-      
-      console.log("User found:", data);
-      setClienteData(data);
+      const userData = await checkUserByRemoteJid(trimmedRemotejid);
+      console.log("User found:", userData);
+      setClienteData(userData);
       
       // Check if the user has a password - handle both null and "null" cases
-      const hasNoPassword = !data.password_hash || data.password_hash === "null" || data.password_hash === "";
+      const hasNoPassword = !userData.password_hash || userData.password_hash === "null" || userData.password_hash === "";
       
       // Determine next step based on whether user has password
       if (hasNoPassword) {
@@ -91,11 +51,13 @@ const AuthPage: React.FC = () => {
       } else {
         setStep('enterPassword');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Login error:', error);
       toast({
-        title: "Erro no sistema",
-        description: "Ocorreu um erro durante a verificação. Tente novamente.",
+        title: error.message === "Usuário não encontrado" ? "Usuário não encontrado" : "Erro no sistema",
+        description: error.message === "Usuário não encontrado" 
+          ? "Não encontramos um usuário com este ID. Verifique e tente novamente."
+          : "Ocorreu um erro durante a verificação. Tente novamente.",
         variant: "destructive"
       });
     } finally {
@@ -128,26 +90,10 @@ const AuthPage: React.FC = () => {
       setLoading(true);
       
       // Update user with new password
-      const { error: updateError } = await supabase
-        .from('donna_clientes')
-        .update({ 
-          password_hash: password, 
-          completou_cadastro: true 
-        })
-        .eq('id', clienteData.id);
-      
-      if (updateError) {
-        toast({
-          title: "Erro ao definir senha",
-          description: "Não foi possível definir sua senha. Tente novamente.",
-          variant: "destructive"
-        });
-        return;
-      }
+      await createUserPassword(clienteData.id, password);
       
       // Set auth session
-      sessionStorage.setItem('user_id', clienteData.id);
-      sessionStorage.setItem('user_name', clienteData.nome || 'Usuário');
+      setSessionData(clienteData.id, clienteData.nome);
       
       toast({
         title: "Senha criada com sucesso!",
@@ -155,7 +101,7 @@ const AuthPage: React.FC = () => {
       });
       
       navigate('/');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Create password error:', error);
       toast({
         title: "Erro no sistema",
@@ -184,8 +130,7 @@ const AuthPage: React.FC = () => {
       }
       
       // Set auth session
-      sessionStorage.setItem('user_id', clienteData.id);
-      sessionStorage.setItem('user_name', clienteData.nome || 'Usuário');
+      setSessionData(clienteData.id, clienteData.nome);
       
       toast({
         title: "Login realizado com sucesso!",
@@ -193,7 +138,7 @@ const AuthPage: React.FC = () => {
       });
       
       navigate('/');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Login error:', error);
       toast({
         title: "Erro no sistema",
@@ -205,139 +150,6 @@ const AuthPage: React.FC = () => {
     }
   };
   
-  const renderCheckUserStep = () => (
-    <form onSubmit={checkUserExists} className="space-y-4">
-      <div className="space-y-2">
-        <Label htmlFor="remotejid">ID de Usuário</Label>
-        <Input
-          id="remotejid"
-          placeholder="Digite seu ID de usuário"
-          value={remotejid}
-          onChange={(e) => setRemotejid(e.target.value)}
-          required
-        />
-      </div>
-      
-      <Button 
-        type="submit" 
-        className="w-full bg-finance-primary hover:bg-finance-primary/90" 
-        disabled={loading}
-      >
-        {loading ? "Verificando..." : "Continuar"}
-      </Button>
-    </form>
-  );
-
-  const renderCreatePasswordStep = () => (
-    <form onSubmit={handleCreatePassword} className="space-y-4">
-      <div className="text-center mb-4">
-        <p className="text-muted-foreground">
-          Primeira vez? Crie uma senha para acessar seu dashboard
-        </p>
-      </div>
-      
-      <div className="space-y-2">
-        <Label htmlFor="password">Nova Senha</Label>
-        <div className="relative">
-          <Input
-            id="password"
-            type={showPassword ? "text" : "password"}
-            placeholder="Crie sua senha"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-          />
-          <button 
-            type="button"
-            className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500"
-            onClick={() => setShowPassword(!showPassword)}
-          >
-            {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-          </button>
-        </div>
-      </div>
-      
-      <div className="space-y-2">
-        <Label htmlFor="confirmPassword">Confirme sua Senha</Label>
-        <div className="relative">
-          <Input
-            id="confirmPassword"
-            type={showPassword ? "text" : "password"}
-            placeholder="Confirme sua senha"
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-            required
-          />
-        </div>
-      </div>
-      
-      <Button 
-        type="submit" 
-        className="w-full bg-finance-primary hover:bg-finance-primary/90" 
-        disabled={loading}
-      >
-        {loading ? "Processando..." : "Criar Senha"}
-      </Button>
-      
-      <Button
-        type="button"
-        variant="outline"
-        className="w-full"
-        onClick={() => setStep('checkUser')}
-      >
-        Voltar
-      </Button>
-    </form>
-  );
-
-  const renderEnterPasswordStep = () => (
-    <form onSubmit={handleLogin} className="space-y-4">
-      <div className="text-center mb-4">
-        <p className="text-muted-foreground">
-          Digite sua senha para acessar o dashboard
-        </p>
-      </div>
-      
-      <div className="space-y-2">
-        <Label htmlFor="password">Senha</Label>
-        <div className="relative">
-          <Input
-            id="password"
-            type={showPassword ? "text" : "password"}
-            placeholder="Digite sua senha"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-          />
-          <button 
-            type="button"
-            className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500"
-            onClick={() => setShowPassword(!showPassword)}
-          >
-            {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-          </button>
-        </div>
-      </div>
-      
-      <Button 
-        type="submit" 
-        className="w-full bg-finance-primary hover:bg-finance-primary/90" 
-        disabled={loading}
-      >
-        {loading ? "Processando..." : "Entrar"}
-      </Button>
-      
-      <Button
-        type="button"
-        variant="outline"
-        className="w-full"
-        onClick={() => setStep('checkUser')}
-      >
-        Voltar
-      </Button>
-    </form>
-  );
-  
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#0F172A] to-[#1A365D] flex flex-col items-center justify-center p-4">
       <div className="w-full max-w-md bg-background/95 backdrop-blur-sm p-8 rounded-lg shadow-lg">
@@ -345,9 +157,40 @@ const AuthPage: React.FC = () => {
           <h1 className="text-2xl font-bold font-poppins mb-2">Assistente Financeiro</h1>
         </div>
         
-        {step === 'checkUser' && renderCheckUserStep()}
-        {step === 'createPassword' && renderCreatePasswordStep()}
-        {step === 'enterPassword' && renderEnterPasswordStep()}
+        {step === 'checkUser' && (
+          <UserIdForm
+            remotejid={remotejid}
+            setRemotejid={setRemotejid}
+            loading={loading}
+            onSubmit={checkUserExists}
+          />
+        )}
+        
+        {step === 'createPassword' && (
+          <CreatePasswordForm
+            password={password}
+            setPassword={setPassword}
+            confirmPassword={confirmPassword}
+            setConfirmPassword={setConfirmPassword}
+            showPassword={showPassword}
+            setShowPassword={setShowPassword}
+            loading={loading}
+            onSubmit={handleCreatePassword}
+            onBack={() => setStep('checkUser')}
+          />
+        )}
+        
+        {step === 'enterPassword' && (
+          <LoginForm
+            password={password}
+            setPassword={setPassword}
+            showPassword={showPassword}
+            setShowPassword={setShowPassword}
+            loading={loading}
+            onSubmit={handleLogin}
+            onBack={() => setStep('checkUser')}
+          />
+        )}
       </div>
     </div>
   );
