@@ -1,13 +1,19 @@
-// Update this page (the content is just a fallback if you fail to update the page)
 
-const Index = () => {
+import React from 'react';
+import MainLayout from '@/components/layout/MainLayout';
+import BalanceCard from '@/components/dashboard/BalanceCard';
+import StatisticsRow from '@/components/dashboard/StatisticsRow';
+import TransactionList from '@/components/dashboard/TransactionList';
+
+const Index: React.FC = () => {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100">
-      <div className="text-center">
-        <h1 className="text-4xl font-bold mb-4">Welcome to Your Blank App</h1>
-        <p className="text-xl text-gray-600">Start building your amazing project here!</p>
+    <MainLayout title="Minhas Finanças">
+      <div className="max-w-md mx-auto">
+        <BalanceCard balance={6450.75} change={12.5} />
+        <StatisticsRow />
+        <TransactionList limit={5} />
       </div>
-    </div>
+    </MainLayout>
   );
 };
 
