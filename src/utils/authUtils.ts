@@ -1,3 +1,4 @@
+
 import { supabase, setAuthToken, debugSupabaseQuery } from '@/integrations/supabase/client';
 import { v4 as uuidv4 } from 'uuid';
 import * as bcrypt from 'bcryptjs-react';
@@ -7,6 +8,7 @@ export const checkUserByRemoteJid = async (remotejid: string) => {
   // Clean the input and log for debugging
   const trimmedRemotejid = remotejid.trim();
   console.log("[AUTH] Looking for user with remotejid:", trimmedRemotejid);
+  console.log("[AUTH] Remotejid type:", typeof trimmedRemotejid, "Length:", trimmedRemotejid.length);
   
   try {
     // First try exact match (more efficient)
@@ -24,14 +26,77 @@ export const checkUserByRemoteJid = async (remotejid: string) => {
     }
     
     console.log("[AUTH] Exact match results:", exactUsers?.length || 0);
-    
-    // If exact match found, return the first result
     if (exactUsers && exactUsers.length > 0) {
       console.log("[AUTH] Found exact matching user:", exactUsers[0].id);
+      console.log("[AUTH] User data:", JSON.stringify(exactUsers[0]));
       return exactUsers[0];
     }
     
-    // Fall back to LIKE query if no exact match
+    // If exact match fails, try without trimming (in case whitespace is actually part of the stored value)
+    const { data: exactWithoutTrimUsers, error: exactWithoutTrimError } = await debugSupabaseQuery(
+      supabase
+        .from('donna_clientes')
+        .select('*')
+        .eq('remotejid', remotejid),
+      'checkUserByRemoteJid - exact without trim match'
+    );
+    
+    if (exactWithoutTrimError) {
+      console.error("[AUTH] Error in exact without trim query:", exactWithoutTrimError);
+    } else if (exactWithoutTrimUsers && exactWithoutTrimUsers.length > 0) {
+      console.log("[AUTH] Found exact matching user without trim:", exactWithoutTrimUsers[0].id);
+      console.log("[AUTH] User data:", JSON.stringify(exactWithoutTrimUsers[0]));
+      return exactWithoutTrimUsers[0];
+    }
+    
+    // Try direct database query for comparison
+    console.log("[AUTH] Attempting direct comparison for troubleshooting");
+    const { data: allUsers, error: allUsersError } = await debugSupabaseQuery(
+      supabase
+        .from('donna_clientes')
+        .select('id, remotejid')
+        .limit(10),
+      'checkUserByRemoteJid - all users sample'
+    );
+    
+    if (allUsersError) {
+      console.error("[AUTH] Error fetching sample users:", allUsersError);
+    } else {
+      console.log("[AUTH] Sample users in database:", JSON.stringify(allUsers));
+      
+      // Manual comparison for debugging
+      for (const user of allUsers || []) {
+        console.log(
+          `[AUTH] Comparing DB remotejid: "${user.remotejid}" (${typeof user.remotejid}, ${user.remotejid?.length || 0}) with input: "${trimmedRemotejid}" (${typeof trimmedRemotejid}, ${trimmedRemotejid.length})`
+        );
+        
+        if (user.remotejid && (
+            user.remotejid === trimmedRemotejid || 
+            user.remotejid.trim() === trimmedRemotejid ||
+            user.remotejid === remotejid
+        )) {
+          console.log("[AUTH] Found matching user via manual comparison:", user.id);
+          
+          // Fetch full user data
+          const { data: userData, error: userError } = await debugSupabaseQuery(
+            supabase
+              .from('donna_clientes')
+              .select('*')
+              .eq('id', user.id),
+            'checkUserByRemoteJid - fetch matched user'
+          );
+          
+          if (userError) {
+            console.error("[AUTH] Error fetching matched user:", userError);
+          } else if (userData && userData.length > 0) {
+            console.log("[AUTH] Returning manually matched user:", userData[0].id);
+            return userData[0];
+          }
+        }
+      }
+    }
+    
+    // Fall back to LIKE query as before
     const { data: likeUsers, error: likeError } = await debugSupabaseQuery(
       supabase
         .from('donna_clientes')
@@ -50,6 +115,7 @@ export const checkUserByRemoteJid = async (remotejid: string) => {
     
     if (likeUsers && likeUsers.length > 0) {
       console.log("[AUTH] Found user via LIKE query:", likeUsers[0].id);
+      console.log("[AUTH] User data:", JSON.stringify(likeUsers[0]));
       return likeUsers[0];
     }
     

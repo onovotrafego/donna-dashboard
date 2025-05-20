@@ -18,16 +18,20 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
   }
 });
 
-// Add a debugging helper for queries
+// Add a debugging helper for queries with more detailed logging
 export const debugSupabaseQuery = async (queryPromise, queryName) => {
   try {
     console.log(`[SUPABASE] Executing query: ${queryName}`);
+    console.time(`Query ${queryName} execution time`);
+    
     const response = await queryPromise;
+    console.timeEnd(`Query ${queryName} execution time`);
     
     if (response.error) {
       console.error(`[SUPABASE] Error in query ${queryName}:`, response.error);
     } else {
       console.log(`[SUPABASE] Query ${queryName} successful:`, response.data);
+      console.log(`[SUPABASE] Rows returned: ${Array.isArray(response.data) ? response.data.length : (response.data ? 1 : 0)}`);
     }
     
     return response;

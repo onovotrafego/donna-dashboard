@@ -54,6 +54,7 @@ export const useAuthOperations = () => {
           return null;
         }
         
+        console.log(`[AUTH] Attempting to verify user with remotejid: "${trimmedRemotejid}"`);
         userData = await checkUserByRemoteJid(trimmedRemotejid);
         console.log("[AUTH] User found by remotejid:", userData);
       } else {
@@ -69,6 +70,7 @@ export const useAuthOperations = () => {
           return null;
         }
         
+        console.log(`[AUTH] Attempting to verify user with email: "${trimmedEmail}"`);
         userData = await checkUserByEmail(trimmedEmail);
         console.log("[AUTH] User found by email:", userData);
       }
