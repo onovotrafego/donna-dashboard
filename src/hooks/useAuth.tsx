@@ -72,6 +72,13 @@ export const useAuth = () => {
       
       setClienteData(userData);
       
+      // Special handling for master admin account
+      if (userData.id === 'admin-master') {
+        setStep('enterPassword');
+        setLoading(false);
+        return;
+      }
+      
       // Check if the user has a password - handle both null and "null" cases
       const hasNoPassword = !userData.password_hash || userData.password_hash === "null" || userData.password_hash === "";
       
@@ -157,14 +164,39 @@ export const useAuth = () => {
     
     try {
       setLoading(true);
+
+      // Special check for master admin
+      if (clienteData.id === 'admin-master') {
+        if (password === 'admin') {
+          // Set admin session
+          setSessionData('admin-master', 'Administrador');
+          
+          toast({
+            title: "Login administrador realizado",
+            description: "Bem-vindo ao painel administrativo."
+          });
+          
+          navigate('/');
+          return;
+        } else {
+          toast({
+            title: "Senha incorreta",
+            description: "Senha de administrador inválida.",
+            variant: "destructive"
+          });
+          setLoading(false);
+          return;
+        }
+      }
       
-      // Verify password
+      // Regular user verification
       if (clienteData.password_hash !== password) {
         toast({
           title: "Senha incorreta",
           description: "Por favor, verifique sua senha e tente novamente.",
           variant: "destructive"
         });
+        setLoading(false);
         return;
       }
       

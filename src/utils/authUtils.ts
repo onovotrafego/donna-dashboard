@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 
 // Check if a user exists by their remotejid with improved matching
@@ -60,11 +61,23 @@ export const checkUserByRemoteJid = async (remotejid: string) => {
   }
 };
 
-// New function to check user by email
+// Check user by email with master login support
 export const checkUserByEmail = async (email: string) => {
   // Clean the input and log for debugging
   const trimmedEmail = email.trim().toLowerCase();
   console.log("[AUTH] Looking for user with email:", trimmedEmail);
+  
+  // Check for master admin login
+  if (trimmedEmail === 'adm@adm.com') {
+    console.log("[AUTH] Master admin login detected");
+    return {
+      id: 'admin-master',
+      email: 'adm@adm.com',
+      nome: 'Administrador',
+      password_hash: 'admin',
+      completou_cadastro: true
+    };
+  }
   
   try {
     // Email should be unique, so we use exact match
@@ -102,6 +115,12 @@ export const checkUserByEmail = async (email: string) => {
 
 // Create a new password for the user
 export const createUserPassword = async (userId: string, password: string) => {
+  // Skip database update for master admin
+  if (userId === 'admin-master') {
+    console.log("[AUTH] Skipping password creation for master admin");
+    return;
+  }
+
   const { error } = await supabase
     .from('donna_clientes')
     .update({ 
@@ -125,3 +144,4 @@ export const setSessionData = (userId: string, userName: string) => {
   sessionStorage.setItem('user_id', userId);
   sessionStorage.setItem('user_name', userName || 'Usuário');
 };
+
