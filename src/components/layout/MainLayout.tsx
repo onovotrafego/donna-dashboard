@@ -21,6 +21,37 @@ const MainLayout: React.FC<MainLayoutProps> = ({
       <main className="px-4">
         {children}
       </main>
+      <style jsx global>{`
+        .mobile-bottom-nav {
+          position: fixed;
+          bottom: 0;
+          left: 0;
+          right: 0;
+          background: white;
+          border-top: 1px solid #eaeaea;
+          padding: 8px 0;
+        }
+        
+        .nav-item {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          padding: 8px 0;
+          color: #666;
+          text-decoration: none;
+          font-size: 12px;
+        }
+        
+        .nav-item.active {
+          color: #0070f3;
+        }
+        
+        .nav-item-text {
+          margin-top: 4px;
+          font-size: 11px;
+        }
+      `}</style>
       <MobileNavigation />
     </div>
   );
