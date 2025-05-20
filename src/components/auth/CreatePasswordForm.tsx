@@ -15,6 +15,7 @@ interface CreatePasswordFormProps {
   loading: boolean;
   onSubmit: (e: React.FormEvent) => Promise<void>;
   onBack: () => void;
+  error?: string | null;
 }
 
 const CreatePasswordForm: React.FC<CreatePasswordFormProps> = ({
@@ -26,7 +27,8 @@ const CreatePasswordForm: React.FC<CreatePasswordFormProps> = ({
   setShowPassword,
   loading,
   onSubmit,
-  onBack
+  onBack,
+  error
 }) => {
   return (
     <form onSubmit={onSubmit} className="space-y-4">
@@ -70,6 +72,12 @@ const CreatePasswordForm: React.FC<CreatePasswordFormProps> = ({
           />
         </div>
       </div>
+      
+      {error && (
+        <div className="text-sm text-red-500 font-medium">
+          {error}
+        </div>
+      )}
       
       <Button 
         type="submit" 
