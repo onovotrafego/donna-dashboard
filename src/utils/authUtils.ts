@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 
 // Check if a user exists by their remotejid with improved matching
@@ -67,16 +66,52 @@ export const checkUserByEmail = async (email: string) => {
   const trimmedEmail = email.trim().toLowerCase();
   console.log("[AUTH] Looking for user with email:", trimmedEmail);
   
-  // Check for master admin login
+  // Check for master admin login - Use the specific client ID provided
   if (trimmedEmail === 'adm@adm.com') {
     console.log("[AUTH] Master admin login detected");
-    return {
-      id: 'admin-master',
-      email: 'adm@adm.com',
-      nome: 'Administrador',
-      password_hash: 'admin',
-      completou_cadastro: true
-    };
+    
+    // We'll now fetch a real user with the specified ID to view its data
+    const ADMIN_REAL_DATA_CLIENT_ID = 'b33cb615-1235-4c5e-9c8d-3c15c2ad8336';
+    
+    try {
+      const { data: realClient, error } = await supabase
+        .from('donna_clientes')
+        .select('*')
+        .eq('id', ADMIN_REAL_DATA_CLIENT_ID)
+        .single();
+      
+      if (error || !realClient) {
+        console.error("[AUTH] Error fetching real client data for admin:", error);
+        // Fall back to static admin data if real client fetch fails
+        return {
+          id: ADMIN_REAL_DATA_CLIENT_ID, // Use the real client ID
+          email: 'adm@adm.com',
+          nome: 'Administrador',
+          password_hash: 'admin',
+          completou_cadastro: true
+        };
+      }
+      
+      console.log("[AUTH] Successfully fetched real client data for admin:", realClient);
+      
+      // Return the real client data but keep admin credentials for login
+      return {
+        ...realClient,
+        email: 'adm@adm.com',
+        nome: 'Administrador',
+        password_hash: 'admin'
+      };
+    } catch (err) {
+      console.error("[AUTH] Error in admin data fetch:", err);
+      // Fall back to static admin data with real client ID
+      return {
+        id: ADMIN_REAL_DATA_CLIENT_ID,
+        email: 'adm@adm.com',
+        nome: 'Administrador',
+        password_hash: 'admin',
+        completou_cadastro: true
+      };
+    }
   }
   
   try {
@@ -116,8 +151,8 @@ export const checkUserByEmail = async (email: string) => {
 // Create a new password for the user
 export const createUserPassword = async (userId: string, password: string) => {
   // Skip database update for master admin
-  if (userId === 'admin-master') {
-    console.log("[AUTH] Skipping password creation for master admin");
+  if (userId === 'b33cb615-1235-4c5e-9c8d-3c15c2ad8336') {
+    console.log("[AUTH] Skipping password creation for admin user");
     return;
   }
 
@@ -144,4 +179,3 @@ export const setSessionData = (userId: string, userName: string) => {
   sessionStorage.setItem('user_id', userId);
   sessionStorage.setItem('user_name', userName || 'Usuário');
 };
-
