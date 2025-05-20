@@ -2,91 +2,55 @@ import { supabase } from '@/integrations/supabase/client';
 
 // Check if a user exists by their remotejid
 export const checkUserByRemoteJid = async (remotejid: string) => {
-  console.log("Checking remotejid before trim:", remotejid);
+  // Clean the input and log for debugging
   const trimmedRemotejid = remotejid.trim();
-  console.log("Checking remotejid after trim:", trimmedRemotejid);
-  console.log("Remotejid length:", trimmedRemotejid.length);
-  console.log("Character codes:", Array.from(trimmedRemotejid).map(c => c.charCodeAt(0)));
+  console.log("[AUTH] Looking for user with remotejid:", trimmedRemotejid);
   
   try {
-    // First attempt - using ilike for more forgiving matching
-    const { data, error } = await supabase
+    // Get all users directly from the DB (bypass filtering which seems to be problematic)
+    const { data: allUsers, error: fetchError } = await supabase
       .from('donna_clientes')
       .select('*')
-      .ilike('remotejid', trimmedRemotejid)
-      .maybeSingle();
+      .limit(100); // Set a reasonable limit
     
-    console.log("ilike query result:", data, error);
-    
-    if (data) {
-      return data;
+    if (fetchError) {
+      console.error("[AUTH] Error fetching users:", fetchError);
+      throw new Error(`Erro ao acessar banco de dados: ${fetchError.message}`);
     }
     
-    // Second attempt - using direct equality if ilike fails
-    const { data: exactData, error: exactError } = await supabase
-      .from('donna_clientes')
-      .select('*')
-      .eq('remotejid', trimmedRemotejid)
-      .maybeSingle();
+    console.log("[AUTH] Retrieved user count:", allUsers?.length || 0);
     
-    console.log("eq query result:", exactData, exactError);
-    
-    if (exactData) {
-      return exactData;
-    }
-    
-    // Third attempt - try without any filtering to see all available users
-    const { data: allUsers, error: listError } = await supabase
-      .from('donna_clientes')
-      .select('remotejid, id')
-      .limit(10);
-    
-    console.log("All available users in DB:", allUsers);
-    console.log("All users query error:", listError);
-    
-    if (listError) {
-      console.error("Error fetching all users:", listError);
-      throw new Error(`Erro ao acessar banco de dados: ${listError.message}`);
-    }
-    
-    // Try a raw query to see if there's any matching remotejid
+    // Manual matching - more reliable than Supabase filtering
     if (allUsers && allUsers.length > 0) {
+      // Find exact match on trimmed values
       const matchingUser = allUsers.find(user => 
         user.remotejid && user.remotejid.trim() === trimmedRemotejid
       );
       
       if (matchingUser) {
-        console.log("Found matching user through manual check:", matchingUser);
-        
-        // Fetch the full user data with the found ID
-        const { data: userData, error: userError } = await supabase
-          .from('donna_clientes')
-          .select('*')
-          .eq('id', matchingUser.id)
-          .single();
-          
-        if (userData) {
-          return userData;
-        }
+        console.log("[AUTH] Found exact matching user:", matchingUser.id);
+        return matchingUser;
       }
       
-      console.log("No manually matching user found in:", allUsers);
-      console.log("Looking for:", trimmedRemotejid);
-      
-      // Log each user's remotejid details for debugging
+      // Log detailed debugging info about all users
+      console.log("[AUTH] No exact match found. Available users:");
       allUsers.forEach(user => {
         if (user.remotejid) {
-          console.log(`User ${user.id} remotejid: "${user.remotejid}"`, 
-                      "Length:", user.remotejid.length, 
-                      "Char codes:", Array.from(user.remotejid).map(c => c.charCodeAt(0)));
+          console.log(`[AUTH] User ${user.id}: remotejid="${user.remotejid}"`, 
+                    "Length:", user.remotejid.length, 
+                    "Value:", user.remotejid,
+                    "Trimmed:", user.remotejid.trim(),
+                    "Char codes:", Array.from(user.remotejid).map(c => c.charCodeAt(0)));
         }
       });
+    } else {
+      console.log("[AUTH] No users found in database");
     }
     
-    // If we got here, no user was found
+    // If we got here, no matching user was found
     throw new Error('Usuário não encontrado');
   } catch (error: any) {
-    console.error("Error details:", error);
+    console.error("[AUTH] Error in checkUserByRemoteJid:", error);
     
     // If it's already our custom error, just throw it
     if (error.message === 'Usuário não encontrado') {
@@ -115,8 +79,9 @@ export const createUserPassword = async (userId: string, password: string) => {
 
 // Set user session data in browser storage
 export const setSessionData = (userId: string, userName: string) => {
-  // Clear any existing session data first
+  // Clear all browser storage to ensure no stale data
   sessionStorage.clear();
+  localStorage.clear();
   
   // Set new session data
   sessionStorage.setItem('user_id', userId);

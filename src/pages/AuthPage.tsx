@@ -38,8 +38,12 @@ const AuthPage: React.FC = () => {
     try {
       setLoading(true);
       
+      // Clear any cached data
+      sessionStorage.clear();
+      localStorage.clear();
+      
       const userData = await checkUserByRemoteJid(trimmedRemotejid);
-      console.log("User found:", userData);
+      console.log("[AUTH] User found:", userData);
       setClienteData(userData);
       
       // Check if the user has a password - handle both null and "null" cases
@@ -52,7 +56,7 @@ const AuthPage: React.FC = () => {
         setStep('enterPassword');
       }
     } catch (error: any) {
-      console.error('Login error:', error);
+      console.error('[AUTH] Login error:', error);
       toast({
         title: error.message === "Usuário não encontrado" ? "Usuário não encontrado" : "Erro no sistema",
         description: error.message === "Usuário não encontrado" 
