@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { BarChart3, Calendar, Home, LogOut, Settings, Users } from 'lucide-react';
@@ -9,6 +8,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import './MobileNavigation.css';
 
 const NAV_ITEMS = [
   {
