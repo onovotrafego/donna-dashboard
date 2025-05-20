@@ -35,6 +35,7 @@ export type Database = {
           email: string | null
           id: string
           nome: string | null
+          password_hash: string | null
           remotejid: string
           status_assinatura_cliente: string
         }
@@ -45,6 +46,7 @@ export type Database = {
           email?: string | null
           id?: string
           nome?: string | null
+          password_hash?: string | null
           remotejid: string
           status_assinatura_cliente?: string
         }
@@ -55,6 +57,7 @@ export type Database = {
           email?: string | null
           id?: string
           nome?: string | null
+          password_hash?: string | null
           remotejid?: string
           status_assinatura_cliente?: string
         }

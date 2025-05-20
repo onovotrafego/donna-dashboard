@@ -1,9 +1,10 @@
 
 import React, { useState } from 'react';
-import { ArrowDownCircle, ArrowUpCircle, Filter } from 'lucide-react';
+import { ArrowDownCircle, ArrowUpCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Link } from 'react-router-dom';
 
-interface Transaction {
+export interface Transaction {
   id: string;
   title: string;
   category: string;
@@ -12,62 +13,27 @@ interface Transaction {
   type: 'income' | 'expense';
 }
 
-// Sample transactions data (would be fetched from API)
-const sampleTransactions: Transaction[] = [
-  {
-    id: '1',
-    title: 'Salário',
-    category: 'Renda',
-    amount: 3500,
-    date: '2025-05-05',
-    type: 'income'
-  },
-  {
-    id: '2',
-    title: 'Supermercado',
-    category: 'Alimentação',
-    amount: 350.75,
-    date: '2025-05-10',
-    type: 'expense'
-  },
-  {
-    id: '3',
-    title: 'Aluguel',
-    category: 'Moradia',
-    amount: 1200,
-    date: '2025-05-15',
-    type: 'expense'
-  },
-  {
-    id: '4',
-    title: 'Freelance',
-    category: 'Renda Extra',
-    amount: 750,
-    date: '2025-05-20',
-    type: 'income'
-  },
-  {
-    id: '5',
-    title: 'Restaurante',
-    category: 'Alimentação',
-    amount: 120.50,
-    date: '2025-05-18',
-    type: 'expense'
-  }
-];
-
 interface TransactionListProps {
   limit?: number;
   showViewAll?: boolean;
+  isLoading?: boolean;
+  transactions?: Transaction[];
 }
 
 const TransactionList: React.FC<TransactionListProps> = ({ 
   limit, 
-  showViewAll = true 
+  showViewAll = true,
+  isLoading = false,
+  transactions = []
 }) => {
   const [filter, setFilter] = useState<'all' | 'income' | 'expense'>('all');
   
-  const filteredTransactions = sampleTransactions
+  // Use provided transactions or fallback to sample data
+  const displayTransactions = transactions.length > 0 
+    ? transactions 
+    : [];
+  
+  const filteredTransactions = displayTransactions
     .filter(transaction => filter === 'all' || transaction.type === filter)
     .slice(0, limit);
   
@@ -75,6 +41,19 @@ const TransactionList: React.FC<TransactionListProps> = ({
     const date = new Date(dateString);
     return new Intl.DateTimeFormat('pt-BR').format(date);
   };
+  
+  if (isLoading) {
+    return (
+      <div className="financial-card animate-pulse">
+        <div className="h-6 bg-muted rounded w-1/3 mb-4"></div>
+        {[1, 2, 3].map(i => (
+          <div key={i} className="mb-3">
+            <div className="h-16 bg-muted/30 rounded-lg"></div>
+          </div>
+        ))}
+      </div>
+    );
+  }
   
   return (
     <div className="financial-card">
@@ -141,8 +120,8 @@ const TransactionList: React.FC<TransactionListProps> = ({
       
       {showViewAll && (
         <div className="mt-4 text-center">
-          <Button variant="outline" className="w-full">
-            Ver todas as transações
+          <Button variant="outline" className="w-full" asChild>
+            <Link to="/transactions">Ver todas as transações</Link>
           </Button>
         </div>
       )}
