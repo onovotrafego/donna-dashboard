@@ -1,38 +1,31 @@
+
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
-import { checkUserByRemoteJid, createUserPassword, setSessionData } from '@/utils/authUtils';
+import { checkUserByRemoteJid, checkUserByEmail, createUserPassword, setSessionData } from '@/utils/authUtils';
 import UserIdForm from '@/components/auth/UserIdForm';
 import CreatePasswordForm from '@/components/auth/CreatePasswordForm';
 import LoginForm from '@/components/auth/LoginForm';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 type AuthStep = 'checkUser' | 'createPassword' | 'enterPassword';
+type LoginMethod = 'remotejid' | 'email';
 
 const AuthPage: React.FC = () => {
   const [remotejid, setRemotejid] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState<AuthStep>('checkUser');
   const [showPassword, setShowPassword] = useState(false);
   const [clienteData, setClienteData] = useState<any>(null);
+  const [loginMethod, setLoginMethod] = useState<LoginMethod>('remotejid');
   const navigate = useNavigate();
   const { toast } = useToast();
 
   const checkUserExists = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // Trim the remotejid only when submitting
-    const trimmedRemotejid = remotejid.trim();
-    
-    if (!trimmedRemotejid) {
-      toast({
-        title: "Campo obrigatório",
-        description: "Por favor, digite seu ID de usuário",
-        variant: "destructive"
-      });
-      return;
-    }
     
     try {
       setLoading(true);
@@ -41,9 +34,41 @@ const AuthPage: React.FC = () => {
       sessionStorage.clear();
       localStorage.clear();
       
-      // Use the updated checkUserByRemoteJid function which now uses LIKE query
-      const userData = await checkUserByRemoteJid(trimmedRemotejid);
-      console.log("[AUTH] User found using LIKE query:", userData);
+      let userData;
+      
+      // Use different check based on login method
+      if (loginMethod === 'remotejid') {
+        const trimmedRemotejid = remotejid.trim();
+        
+        if (!trimmedRemotejid) {
+          toast({
+            title: "Campo obrigatório",
+            description: "Por favor, digite seu ID de usuário",
+            variant: "destructive"
+          });
+          setLoading(false);
+          return;
+        }
+        
+        userData = await checkUserByRemoteJid(trimmedRemotejid);
+        console.log("[AUTH] User found by remotejid:", userData);
+      } else {
+        const trimmedEmail = email.trim();
+        
+        if (!trimmedEmail) {
+          toast({
+            title: "Campo obrigatório",
+            description: "Por favor, digite seu email",
+            variant: "destructive"
+          });
+          setLoading(false);
+          return;
+        }
+        
+        userData = await checkUserByEmail(trimmedEmail);
+        console.log("[AUTH] User found by email:", userData);
+      }
+      
       setClienteData(userData);
       
       // Check if the user has a password - handle both null and "null" cases
@@ -57,11 +82,20 @@ const AuthPage: React.FC = () => {
       }
     } catch (error: any) {
       console.error('[AUTH] Login error:', error);
-      toast({
-        title: error.message === "Usuário não encontrado" ? "Usuário não encontrado" : "Erro no sistema",
-        description: error.message === "Usuário não encontrado" 
+      
+      const errorMessage = error.message === "Usuário não encontrado" || error.message === "Email não encontrado"
+        ? loginMethod === 'remotejid' 
           ? "Não encontramos um usuário com este ID. Verifique e tente novamente."
-          : "Ocorreu um erro durante a verificação. Tente novamente.",
+          : "Não encontramos um usuário com este email. Verifique e tente novamente."
+        : "Ocorreu um erro durante a verificação. Tente novamente.";
+      
+      const errorTitle = error.message === "Usuário não encontrado" || error.message === "Email não encontrado"
+        ? loginMethod === 'remotejid' ? "Usuário não encontrado" : "Email não encontrado"
+        : "Erro no sistema";
+      
+      toast({
+        title: errorTitle,
+        description: errorMessage,
         variant: "destructive"
       });
     } finally {
@@ -162,12 +196,69 @@ const AuthPage: React.FC = () => {
         </div>
         
         {step === 'checkUser' && (
-          <UserIdForm
-            remotejid={remotejid}
-            setRemotejid={setRemotejid}
-            loading={loading}
-            onSubmit={checkUserExists}
-          />
+          <>
+            <Tabs 
+              defaultValue="remotejid" 
+              value={loginMethod}
+              onValueChange={(value) => setLoginMethod(value as LoginMethod)}
+              className="mb-6"
+            >
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="remotejid">ID de Usuário</TabsTrigger>
+                <TabsTrigger value="email">E-mail</TabsTrigger>
+              </TabsList>
+              <TabsContent value="remotejid">
+                <form onSubmit={checkUserExists} className="space-y-4">
+                  <div className="space-y-2">
+                    <label htmlFor="remotejid" className="block text-sm font-medium">
+                      ID de Usuário
+                    </label>
+                    <input
+                      id="remotejid"
+                      type="text"
+                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm"
+                      placeholder="Digite seu ID de usuário"
+                      value={remotejid}
+                      onChange={(e) => setRemotejid(e.target.value)}
+                    />
+                  </div>
+                  
+                  <button 
+                    type="submit" 
+                    className="w-full bg-finance-primary hover:bg-finance-primary/90 text-white py-2 px-4 rounded"
+                    disabled={loading}
+                  >
+                    {loading ? "Verificando..." : "Continuar"}
+                  </button>
+                </form>
+              </TabsContent>
+              <TabsContent value="email">
+                <form onSubmit={checkUserExists} className="space-y-4">
+                  <div className="space-y-2">
+                    <label htmlFor="email" className="block text-sm font-medium">
+                      E-mail
+                    </label>
+                    <input
+                      id="email"
+                      type="email"
+                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm"
+                      placeholder="Digite seu email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                    />
+                  </div>
+                  
+                  <button 
+                    type="submit" 
+                    className="w-full bg-finance-primary hover:bg-finance-primary/90 text-white py-2 px-4 rounded"
+                    disabled={loading}
+                  >
+                    {loading ? "Verificando..." : "Continuar"}
+                  </button>
+                </form>
+              </TabsContent>
+            </Tabs>
+          </>
         )}
         
         {step === 'createPassword' && (

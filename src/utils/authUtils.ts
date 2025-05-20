@@ -1,41 +1,51 @@
 import { supabase } from '@/integrations/supabase/client';
 
-// Check if a user exists by their remotejid using LIKE query
+// Check if a user exists by their remotejid with improved matching
 export const checkUserByRemoteJid = async (remotejid: string) => {
   // Clean the input and log for debugging
   const trimmedRemotejid = remotejid.trim();
   console.log("[AUTH] Looking for user with remotejid:", trimmedRemotejid);
   
   try {
-    // Use LIKE query to find matching users (more flexible than exact match)
-    const { data: matchingUsers, error: fetchError } = await supabase
+    // First try exact match (more efficient)
+    let { data: exactUsers, error: exactError } = await supabase
+      .from('donna_clientes')
+      .select('*')
+      .eq('remotejid', trimmedRemotejid);
+    
+    if (exactError) {
+      console.error("[AUTH] Error in exact match query:", exactError);
+      throw new Error(`Erro ao acessar banco de dados: ${exactError.message}`);
+    }
+    
+    console.log("[AUTH] Exact match results:", exactUsers?.length || 0);
+    
+    // If exact match found, return the first result
+    if (exactUsers && exactUsers.length > 0) {
+      console.log("[AUTH] Found exact matching user:", exactUsers[0].id);
+      return exactUsers[0];
+    }
+    
+    // Fall back to LIKE query if no exact match
+    const { data: likeUsers, error: likeError } = await supabase
       .from('donna_clientes')
       .select('*')
       .ilike('remotejid', `%${trimmedRemotejid}%`)
-      .limit(10); // Set a reasonable limit
+      .limit(10);
     
-    if (fetchError) {
-      console.error("[AUTH] Error fetching users:", fetchError);
-      throw new Error(`Erro ao acessar banco de dados: ${fetchError.message}`);
+    if (likeError) {
+      console.error("[AUTH] Error in LIKE query:", likeError);
+      throw new Error(`Erro ao acessar banco de dados: ${likeError.message}`);
     }
     
-    console.log("[AUTH] Retrieved user count using LIKE query:", matchingUsers?.length || 0);
+    console.log("[AUTH] LIKE query results:", likeUsers?.length || 0);
     
-    // Check if we found any matching users
-    if (matchingUsers && matchingUsers.length > 0) {
-      // Find closest match - ideally an exact match if available
-      const exactMatch = matchingUsers.find(user => 
-        user.remotejid && user.remotejid.trim() === trimmedRemotejid
-      );
-      
-      // If we have an exact match, use it; otherwise use the first match
-      const bestMatch = exactMatch || matchingUsers[0];
-      
-      console.log("[AUTH] Found matching user:", bestMatch.id);
-      return bestMatch;
+    if (likeUsers && likeUsers.length > 0) {
+      console.log("[AUTH] Found user via LIKE query:", likeUsers[0].id);
+      return likeUsers[0];
     }
     
-    console.log("[AUTH] No matching users found with LIKE query");
+    console.log("[AUTH] No matching users found with any method");
     throw new Error('Usuário não encontrado');
   } catch (error: any) {
     console.error("[AUTH] Error in checkUserByRemoteJid:", error);
@@ -47,6 +57,46 @@ export const checkUserByRemoteJid = async (remotejid: string) => {
     
     // Otherwise wrap it with more details
     throw new Error(`Erro ao verificar usuário: ${error.message}`);
+  }
+};
+
+// New function to check user by email
+export const checkUserByEmail = async (email: string) => {
+  // Clean the input and log for debugging
+  const trimmedEmail = email.trim().toLowerCase();
+  console.log("[AUTH] Looking for user with email:", trimmedEmail);
+  
+  try {
+    // Email should be unique, so we use exact match
+    const { data: users, error: fetchError } = await supabase
+      .from('donna_clientes')
+      .select('*')
+      .eq('email', trimmedEmail);
+    
+    if (fetchError) {
+      console.error("[AUTH] Error fetching user by email:", fetchError);
+      throw new Error(`Erro ao acessar banco de dados: ${fetchError.message}`);
+    }
+    
+    console.log("[AUTH] Email query results:", users?.length || 0);
+    
+    if (users && users.length > 0) {
+      console.log("[AUTH] Found user with matching email:", users[0].id);
+      return users[0];
+    }
+    
+    console.log("[AUTH] No user found with this email");
+    throw new Error('Email não encontrado');
+  } catch (error: any) {
+    console.error("[AUTH] Error in checkUserByEmail:", error);
+    
+    // If it's already our custom error, just throw it
+    if (error.message === 'Email não encontrado') {
+      throw error;
+    }
+    
+    // Otherwise wrap it with more details
+    throw new Error(`Erro ao verificar email: ${error.message}`);
   }
 };
 
