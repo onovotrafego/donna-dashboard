@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -40,8 +41,8 @@ const AuthPage: React.FC = () => {
       const { data, error } = await supabase
         .from('donna_clientes')
         .select('*')
-        .eq('remotejid', remotejid)
-        .maybeSingle(); // Changed from single() to maybeSingle()
+        .eq('remotejid', remotejid.trim())
+        .maybeSingle();
       
       console.log("Query result:", data, error);
       
@@ -67,8 +68,11 @@ const AuthPage: React.FC = () => {
       console.log("User found:", data);
       setClienteData(data);
       
+      // Check if the user has a password - handle both null and "null" cases
+      const hasNoPassword = !data.password_hash || data.password_hash === "null" || data.password_hash === "";
+      
       // Determine next step based on whether user has password
-      if (!data.password_hash) {
+      if (hasNoPassword) {
         setStep('createPassword');
       } else {
         setStep('enterPassword');
