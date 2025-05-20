@@ -29,11 +29,12 @@ export const debugSupabaseQuery = async (queryPromise, queryName) => {
     
     if (response.error) {
       console.error(`[SUPABASE] Error in query ${queryName}:`, response.error);
-      console.error(`[SUPABASE] Error details:`, JSON.stringify(response, null, 2));
+      console.error(`[SUPABASE] Error code:`, response.error.code);
+      console.error(`[SUPABASE] Error message:`, response.error.message);
+      console.error(`[SUPABASE] Error details:`, response.error.details);
     } else {
       console.log(`[SUPABASE] Query ${queryName} successful:`, response.data);
       console.log(`[SUPABASE] Rows returned: ${Array.isArray(response.data) ? response.data.length : (response.data ? 1 : 0)}`);
-      console.log(`[SUPABASE] Response details:`, JSON.stringify(response, null, 2));
     }
     
     return response;

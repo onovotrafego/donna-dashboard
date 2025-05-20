@@ -1,4 +1,3 @@
-
 import { supabase, setAuthToken, debugSupabaseQuery } from '@/integrations/supabase/client';
 import { v4 as uuidv4 } from 'uuid';
 import * as bcrypt from 'bcryptjs-react';
@@ -16,7 +15,8 @@ export const checkUserByRemoteJid = async (remotejid: string) => {
       supabase
         .from('donna_clientes')
         .select('*')
-        .eq('remotejid', trimmedRemotejid),
+        .eq('remotejid', trimmedRemotejid)
+        .maybeSingle(),
       'checkUserByRemoteJid - exact match'
     );
     
@@ -25,36 +25,18 @@ export const checkUserByRemoteJid = async (remotejid: string) => {
       throw new Error(`Erro ao acessar banco de dados: ${exactError.message}`);
     }
     
-    console.log("[AUTH] Exact match results:", exactUsers?.length || 0);
-    if (exactUsers && exactUsers.length > 0) {
-      console.log("[AUTH] Found exact matching user:", exactUsers[0].id);
-      console.log("[AUTH] User data:", JSON.stringify(exactUsers[0]));
-      return exactUsers[0];
+    console.log("[AUTH] Exact match results:", exactUsers ? "Found" : "Not found");
+    if (exactUsers) {
+      console.log("[AUTH] Found exact matching user:", exactUsers.id);
+      console.log("[AUTH] User data:", JSON.stringify(exactUsers));
+      return exactUsers;
     }
     
-    // If exact match fails, try without trimming (in case whitespace is actually part of the stored value)
-    const { data: exactWithoutTrimUsers, error: exactWithoutTrimError } = await debugSupabaseQuery(
-      supabase
-        .from('donna_clientes')
-        .select('*')
-        .eq('remotejid', remotejid),
-      'checkUserByRemoteJid - exact without trim match'
-    );
-    
-    if (exactWithoutTrimError) {
-      console.error("[AUTH] Error in exact without trim query:", exactWithoutTrimError);
-    } else if (exactWithoutTrimUsers && exactWithoutTrimUsers.length > 0) {
-      console.log("[AUTH] Found exact matching user without trim:", exactWithoutTrimUsers[0].id);
-      console.log("[AUTH] User data:", JSON.stringify(exactWithoutTrimUsers[0]));
-      return exactWithoutTrimUsers[0];
-    }
-    
-    // Try direct database query for comparison
-    console.log("[AUTH] Attempting direct comparison for troubleshooting");
+    // If exact match fails, try case insensitive match
     const { data: allUsers, error: allUsersError } = await debugSupabaseQuery(
       supabase
         .from('donna_clientes')
-        .select('id, remotejid')
+        .select('*')
         .limit(10),
       'checkUserByRemoteJid - all users sample'
     );
@@ -62,41 +44,28 @@ export const checkUserByRemoteJid = async (remotejid: string) => {
     if (allUsersError) {
       console.error("[AUTH] Error fetching sample users:", allUsersError);
     } else {
-      console.log("[AUTH] Sample users in database:", JSON.stringify(allUsers));
+      console.log("[AUTH] All users in database:", JSON.stringify(allUsers));
       
-      // Manual comparison for debugging
-      for (const user of allUsers || []) {
-        console.log(
-          `[AUTH] Comparing DB remotejid: "${user.remotejid}" (${typeof user.remotejid}, ${user.remotejid?.length || 0}) with input: "${trimmedRemotejid}" (${typeof trimmedRemotejid}, ${trimmedRemotejid.length})`
-        );
-        
-        if (user.remotejid && (
-            user.remotejid === trimmedRemotejid || 
-            user.remotejid.trim() === trimmedRemotejid ||
-            user.remotejid === remotejid
-        )) {
-          console.log("[AUTH] Found matching user via manual comparison:", user.id);
+      if (allUsers && allUsers.length > 0) {
+        // Check for close matches manually
+        for (const user of allUsers) {
+          console.log(`[AUTH] Comparing DB remotejid: "${user.remotejid}" with input: "${trimmedRemotejid}"`);
           
-          // Fetch full user data
-          const { data: userData, error: userError } = await debugSupabaseQuery(
-            supabase
-              .from('donna_clientes')
-              .select('*')
-              .eq('id', user.id),
-            'checkUserByRemoteJid - fetch matched user'
-          );
-          
-          if (userError) {
-            console.error("[AUTH] Error fetching matched user:", userError);
-          } else if (userData && userData.length > 0) {
-            console.log("[AUTH] Returning manually matched user:", userData[0].id);
-            return userData[0];
+          if (user.remotejid && (
+              user.remotejid === trimmedRemotejid || 
+              user.remotejid.trim() === trimmedRemotejid ||
+              user.remotejid.toLowerCase() === trimmedRemotejid.toLowerCase()
+          )) {
+            console.log("[AUTH] Found matching user via comparison:", user.id);
+            return user;
           }
         }
+      } else {
+        console.log("[AUTH] No users found in the database");
       }
     }
     
-    // Fall back to LIKE query as before
+    // Fall back to LIKE query as a last resort
     const { data: likeUsers, error: likeError } = await debugSupabaseQuery(
       supabase
         .from('donna_clientes')
@@ -140,13 +109,13 @@ export const checkUserByEmail = async (email: string) => {
   const trimmedEmail = email.trim().toLowerCase();
   console.log("[AUTH] Looking for user with email:", trimmedEmail);
   
-  // Check for master admin login - Use a different ID to avoid conflicts
+  // Check for master admin login - Using a unique admin ID that won't conflict
   if (trimmedEmail === 'adm@adm.com') {
     console.log("[AUTH] Master admin login detected");
     
-    // Admin special account with different ID to avoid conflicts with real users
+    // Special admin account with unique ID
     return {
-      id: 'admin-special-id-12345',
+      id: 'admin-master-id-98765',
       email: 'adm@adm.com',
       nome: 'Administrador',
       password_hash: await bcrypt.hash('admin', 10),
@@ -155,54 +124,80 @@ export const checkUserByEmail = async (email: string) => {
   }
   
   try {
-    // First, log all users in the database for debugging
-    const { data: allUsers, error: allUsersError } = await debugSupabaseQuery(
-      supabase
-        .from('donna_clientes')
-        .select('id, email')
-        .limit(20),
-      'checkUserByEmail - all users sample'
-    );
+    console.log("[AUTH] Querying database for email:", trimmedEmail);
     
-    if (!allUsersError) {
-      console.log("[AUTH] All users in database:", JSON.stringify(allUsers));
-    }
-    
-    // Email should be unique, so we use exact match
+    // First use exact match (case insensitive)
     const { data: users, error: fetchError } = await debugSupabaseQuery(
       supabase
         .from('donna_clientes')
         .select('*')
-        .eq('email', trimmedEmail),
+        .ilike('email', trimmedEmail)
+        .maybeSingle(),
       'checkUserByEmail - exact match'
     );
     
     if (fetchError) {
       console.error("[AUTH] Error fetching user by email:", fetchError);
-      throw new Error(`Erro ao acessar banco de dados: ${fetchError.message}`);
+      
+      // Check if it's a 406 error (not found or multiple rows)
+      if (fetchError.code === 'PGRST116') {
+        console.log("[AUTH] Got 406 error - trying different approach");
+        
+        // Try getting all users and filtering
+        const { data: allUsers, error: allUsersError } = await debugSupabaseQuery(
+          supabase
+            .from('donna_clientes')
+            .select('*')
+            .limit(20),
+          'checkUserByEmail - all users sample'
+        );
+        
+        if (!allUsersError && allUsers && allUsers.length > 0) {
+          console.log("[AUTH] Found", allUsers.length, "users in database");
+          
+          // Find matching email
+          for (const user of allUsers) {
+            if (user.email && user.email.toLowerCase() === trimmedEmail) {
+              console.log("[AUTH] Found matching user:", user.id);
+              return user;
+            }
+          }
+        }
+      } else {
+        throw new Error(`Erro ao acessar banco de dados: ${fetchError.message}`);
+      }
     }
     
-    console.log("[AUTH] Email query results:", users?.length || 0);
-    
-    if (users && users.length > 0) {
-      console.log("[AUTH] Found user with matching email:", users[0].id);
-      console.log("[AUTH] User data:", JSON.stringify(users[0]));
-      return users[0];
+    if (users) {
+      console.log("[AUTH] Found user with matching email:", users.id);
+      console.log("[AUTH] User data:", JSON.stringify(users));
+      return users;
     }
     
-    // If exact match fails, try case insensitive match
-    const { data: caseInsensitiveUsers, error: caseInsensitiveError } = await debugSupabaseQuery(
+    // If no user found yet, try all users as a last resort
+    console.log("[AUTH] No exact match, trying to list all users");
+    
+    const { data: allUsers, error: allUsersError } = await debugSupabaseQuery(
       supabase
         .from('donna_clientes')
         .select('*')
-        .ilike('email', trimmedEmail),
-      'checkUserByEmail - case insensitive match'
+        .limit(20),
+      'checkUserByEmail - all users list'
     );
     
-    if (!caseInsensitiveError && caseInsensitiveUsers && caseInsensitiveUsers.length > 0) {
-      console.log("[AUTH] Found user with case insensitive email match:", caseInsensitiveUsers[0].id);
-      console.log("[AUTH] User data:", JSON.stringify(caseInsensitiveUsers[0]));
-      return caseInsensitiveUsers[0];
+    if (!allUsersError && allUsers && allUsers.length > 0) {
+      console.log("[AUTH] Total users found:", allUsers.length);
+      console.log("[AUTH] Available emails:", allUsers.map(u => u.email).join(', '));
+      
+      // Try to find by case-insensitive comparison
+      for (const user of allUsers) {
+        if (user.email && user.email.toLowerCase() === trimmedEmail) {
+          console.log("[AUTH] Found matching user by manual comparison:", user.id);
+          return user;
+        }
+      }
+    } else {
+      console.log("[AUTH] No users found in database or error:", allUsersError);
     }
     
     console.log("[AUTH] No user found with this email");
@@ -226,7 +221,7 @@ export const createUserPassword = async (userId: string, password: string) => {
   
   try {
     // Skip database update for master admin
-    if (userId === 'admin-special-id-12345') {
+    if (userId === 'admin-master-id-98765') {
       console.log("[AUTH] Skipping password creation for admin user");
       return;
     }
@@ -282,7 +277,7 @@ export const loginWithPassword = async (userId: string, password: string, stored
   
   try {
     // Special case for admin
-    if (userId === 'admin-special-id-12345' && password === 'admin') {
+    if (userId === 'admin-master-id-98765' && password === 'admin') {
       console.log("[AUTH] Admin login successful");
       return true;
     }
