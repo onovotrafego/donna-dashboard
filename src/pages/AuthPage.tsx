@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { useToast } from '@/components/ui/use-toast';
+import { useToast } from '@/hooks/use-toast';
 import { Eye, EyeOff } from 'lucide-react';
 
 const AuthPage: React.FC = () => {
@@ -33,21 +33,32 @@ const AuthPage: React.FC = () => {
     try {
       setLoading(true);
       
-      // Log to check what's happening
+      // Log the remotejid for debugging
       console.log("Checking remotejid:", remotejid);
       
-      // Simplified query - directly using the value without any transformation
+      // Use maybeSingle() instead of single() to avoid the error when no rows are found
       const { data, error } = await supabase
         .from('donna_clientes')
         .select('*')
         .eq('remotejid', remotejid)
-        .single();
+        .maybeSingle(); // Changed from single() to maybeSingle()
+      
+      console.log("Query result:", data, error);
       
       if (error) {
         console.error("Error details:", error);
         toast({
           title: "Erro ao verificar usuário",
-          description: "Usuário não encontrado. Verifique seu ID e tente novamente.",
+          description: "Ocorreu um erro ao verificar o usuário. Tente novamente.",
+          variant: "destructive"
+        });
+        return;
+      }
+      
+      if (!data) {
+        toast({
+          title: "Usuário não encontrado",
+          description: "Não encontramos um usuário com este ID. Verifique e tente novamente.",
           variant: "destructive"
         });
         return;
