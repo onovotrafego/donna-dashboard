@@ -12,6 +12,26 @@ const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiO
 export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
   auth: {
     persistSession: true,
-    autoRefreshToken: true
+    autoRefreshToken: true,
+    detectSessionInUrl: false
   }
 });
+
+// Add a debugging helper for queries
+export const debugSupabaseQuery = async (queryPromise, queryName) => {
+  try {
+    console.log(`[SUPABASE] Executing query: ${queryName}`);
+    const response = await queryPromise;
+    
+    if (response.error) {
+      console.error(`[SUPABASE] Error in query ${queryName}:`, response.error);
+    } else {
+      console.log(`[SUPABASE] Query ${queryName} successful:`, response.data);
+    }
+    
+    return response;
+  } catch (error) {
+    console.error(`[SUPABASE] Exception in query ${queryName}:`, error);
+    throw error;
+  }
+};
