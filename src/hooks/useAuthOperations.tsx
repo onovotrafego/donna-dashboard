@@ -167,8 +167,8 @@ export const useAuthOperations = () => {
       // Verificação especial para admin master
       if (clienteData.id === 'admin-master') {
         if (password === 'admin') {
-          // Definir sessão de administrador
-          setSessionData('admin-master', 'Administrador');
+          // Definir sessão de administrador com ID do cliente real para dados
+          setSessionData('b33cb615-1235-4c5e-9c8d-3c15c2ad8336', 'Administrador');
           
           toast({
             title: "Login administrador realizado",
