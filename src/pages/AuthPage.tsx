@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -34,7 +33,10 @@ const AuthPage: React.FC = () => {
     try {
       setLoading(true);
       
-      // Check if user exists with this remotejid
+      // Log to check what's happening
+      console.log("Checking remotejid:", remotejid);
+      
+      // Simplified query - directly using the value without any transformation
       const { data, error } = await supabase
         .from('donna_clientes')
         .select('*')
@@ -42,6 +44,7 @@ const AuthPage: React.FC = () => {
         .single();
       
       if (error) {
+        console.error("Error details:", error);
         toast({
           title: "Erro ao verificar usuário",
           description: "Usuário não encontrado. Verifique seu ID e tente novamente.",
@@ -50,6 +53,7 @@ const AuthPage: React.FC = () => {
         return;
       }
       
+      console.log("User found:", data);
       setClienteData(data);
       
       // Determine next step based on whether user has password
@@ -180,7 +184,7 @@ const AuthPage: React.FC = () => {
           id="remotejid"
           placeholder="Digite seu ID de usuário"
           value={remotejid}
-          onChange={(e) => setRemotejid(e.target.value)}
+          onChange={(e) => setRemotejid(e.target.value.trim())}
           required
         />
       </div>
