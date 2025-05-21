@@ -8,7 +8,7 @@ import {
   createUserPassword, 
   setSessionData,
   loginWithPassword
-} from '@/utils/authUtils';
+} from '@/utils/auth'; // Atualizado para o novo caminho
 
 type AuthStep = 'checkUser' | 'createPassword' | 'enterPassword';
 
