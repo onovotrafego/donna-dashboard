@@ -31,13 +31,13 @@ export const executeInsensitiveQuery = async (field: string, value: string, oper
 };
 
 // Loga emails disponíveis para debug
-export const logAvailableEmails = (users: Array<UserRecord>): void => {
+export const logAvailableEmails = (users: Array<any>): void => {
   console.log("[AUTH] Available emails:", 
     users.map(user => user.email).filter(Boolean).join(', '));
 };
 
 // Compara e encontra usuário por email
-export const findUserByEmail = (users: Array<UserRecord>, targetEmail: string): UserRecord | null => {
+export const findUserByEmail = (users: Array<any>, targetEmail: string): any => {
   const trimmedTargetEmail = targetEmail.trim().toLowerCase();
   
   for (const user of users) {

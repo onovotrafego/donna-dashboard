@@ -1,174 +1,32 @@
 
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useToast } from '@/hooks/use-toast';
-import { 
-  createUserPassword, 
-  loginWithPassword, 
-  setSessionData 
-} from '@/utils/auth';
-import { supabase } from '@/integrations/supabase/client';
+import { usePasswordCreation } from './auth/usePasswordCreation';
+import { useLoginManagement } from './auth/useLoginManagement';
 
 /**
  * Hook para gerenciar operações relacionadas a senha
  */
 export const usePasswordManagement = () => {
-  const [loading, setLoading] = useState(false);
-  const [authError, setAuthError] = useState<string | null>(null);
-  const navigate = useNavigate();
-  const { toast } = useToast();
+  // Usar hooks especializados
+  const passwordCreation = usePasswordCreation();
+  const loginManagement = useLoginManagement();
 
   // Criar uma nova senha para o usuário
   const createUserPasswordOp = async (userId: string, password: string, confirmPassword: string, userName: string) => {
-    try {
-      setAuthError(null);
-      
-      if (password !== confirmPassword) {
-        setAuthError("As senhas não coincidem");
-        toast({
-          title: "Senhas não coincidem",
-          description: "Por favor, confirme que as senhas são iguais",
-          variant: "destructive"
-        });
-        return false;
-      }
-      
-      if (password.length < 6) {
-        setAuthError("Sua senha deve ter pelo menos 6 caracteres");
-        toast({
-          title: "Senha muito curta",
-          description: "Sua senha deve ter pelo menos 6 caracteres",
-          variant: "destructive"
-        });
-        return false;
-      }
-      
-      setLoading(true);
-      
-      console.log("[AUTH] Criando senha para usuário:", userId);
-      
-      // Atualizar usuário com nova senha
-      await createUserPassword(userId, password);
-      
-      console.log("[AUTH] Senha criada, configurando dados da sessão");
-      
-      // Definir sessão de autenticação local
-      await setSessionData(userId, userName || 'Usuário');
-      
-      toast({
-        title: "Senha criada com sucesso!",
-        description: "Bem-vindo ao seu dashboard financeiro."
-      });
-      
-      navigate('/');
-      return true;
-    } catch (error) {
-      console.error('Erro ao criar senha:', error);
-      setAuthError("Ocorreu um erro ao criar sua senha. Tente novamente.");
-      toast({
-        title: "Erro no sistema",
-        description: "Ocorreu um erro ao criar sua senha. Tente novamente.",
-        variant: "destructive"
-      });
-      return false;
-    } finally {
-      setLoading(false);
-    }
+    return passwordCreation.createUserPasswordOp(userId, password, confirmPassword, userName);
   };
 
-  // Fazer login (verificar senha)
+  // Fazer login com senha
   const loginUser = async (userId: string, password: string, passwordHash: string, userName: string) => {
-    try {
-      setLoading(true);
-      setAuthError(null);
+    return loginManagement.loginUser(userId, password, passwordHash, userName);
+  };
 
-      if (!password) {
-        setAuthError("Por favor, digite sua senha");
-        toast({
-          title: "Campo obrigatório",
-          description: "Por favor, digite sua senha",
-          variant: "destructive"
-        });
-        return false;
-      }
-
-      console.log("[AUTH] Tentando login para usuário:", userId);
-      
-      // Verificação usando a função loginWithPassword
-      const isValid = await loginWithPassword(userId, password, passwordHash);
-      
-      if (!isValid) {
-        console.log("[AUTH] Validação de senha falhou");
-        setAuthError("Senha incorreta. Por favor, verifique e tente novamente.");
-        toast({
-          title: "Senha incorreta",
-          description: "Por favor, verifique sua senha e tente novamente.",
-          variant: "destructive"
-        });
-        return false;
-      }
-      
-      console.log("[AUTH] Senha validada com sucesso, configurando sessão");
-      
-      // Try to authenticate with Supabase directly using user credentials
-      try {
-        const { data, error } = await supabase.auth.signInWithPassword({
-          email: `${userId}@donna.app`,
-          password,
-        });
-        
-        if (error) {
-          console.log("[AUTH] Erro ao fazer login com Supabase:", error);
-          
-          // If login fails, try to sign up the user
-          if (error.message === 'Invalid login credentials') {
-            console.log("[AUTH] Usuário não existe no Supabase, tentando cadastrar...");
-            
-            const { error: signUpError } = await supabase.auth.signUp({
-              email: `${userId}@donna.app`,
-              password,
-            });
-            
-            if (signUpError) {
-              console.warn("[AUTH] Falha ao cadastrar no Supabase:", signUpError);
-            } else {
-              console.log("[AUTH] Usuário cadastrado no Supabase com sucesso!");
-              // Try login again
-              await supabase.auth.signInWithPassword({
-                email: `${userId}@donna.app`,
-                password,
-              });
-            }
-          }
-        } else {
-          console.log("[AUTH] Autenticado com sucesso no Supabase!");
-        }
-      } catch (supabaseError) {
-        console.error("[AUTH] Erro crítico com Supabase auth:", supabaseError);
-      }
-      
-      // Definir sessão de autenticação local (será usada como fallback)
-      await setSessionData(userId, userName || 'Usuário');
-      
-      toast({
-        title: "Login realizado com sucesso!",
-        description: "Bem-vindo ao seu dashboard financeiro."
-      });
-      
-      navigate('/');
-      return true;
-    } catch (error) {
-      console.error('Erro de login:', error);
-      setAuthError("Ocorreu um erro durante o login. Tente novamente.");
-      toast({
-        title: "Erro no sistema",
-        description: "Ocorreu um erro durante o login. Tente novamente.",
-        variant: "destructive"
-      });
-      return false;
-    } finally {
-      setLoading(false);
-    }
+  // Combinar estados de ambos os hooks
+  const loading = passwordCreation.loading || loginManagement.loading;
+  const authError = passwordCreation.authError || loginManagement.authError;
+  
+  const setAuthError = (error: string | null) => {
+    passwordCreation.setAuthError(error);
+    loginManagement.setAuthError(error);
   };
 
   return {
