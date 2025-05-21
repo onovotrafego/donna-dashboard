@@ -104,7 +104,7 @@ const TransactionsPage: React.FC = () => {
           <ExportButton 
             transactions={dateFilteredTransactions}
             dateRange={dateRange}
-            userName={user?.nome}
+            userName={user?.name} // Change from user?.nome to user?.name to match the User type
             disabled={isLoading || dateFilteredTransactions.length === 0}
           />
         </div>
