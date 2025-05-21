@@ -3,6 +3,7 @@ import React, { createContext, useContext, useEffect, useState, ReactNode } from
 import { useNavigate } from 'react-router-dom';
 import { supabase, getAuthToken, clearAuthToken } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { AUTH_STATE_CHANGE_EVENT, clearSessionData } from '@/utils/auth';
 
 interface User {
   id: string;
@@ -32,7 +33,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  // Load user from local storage on initial render
+  // Load user from local storage and set up listeners
   useEffect(() => {
     const loadUser = () => {
       try {
@@ -68,9 +69,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
     };
     
+    // Initial load of user data
     loadUser();
     
-    // Set up a storage event listener for multi-tab synchronization
+    // Listen for storage events (for multi-tab support)
     const handleStorageChange = (event) => {
       if (event.key === 'auth_token' || event.key === 'user_id' || event.key === null) {
         console.log('[AUTH] Storage change detected, updating auth state');
@@ -78,16 +80,24 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
     };
     
+    // Listen for our custom auth state change event
+    const handleAuthStateChange = () => {
+      console.log('[AUTH] Auth state change event detected');
+      loadUser();
+    };
+    
     window.addEventListener('storage', handleStorageChange);
+    window.addEventListener(AUTH_STATE_CHANGE_EVENT, handleAuthStateChange);
     
     return () => {
       window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener(AUTH_STATE_CHANGE_EVENT, handleAuthStateChange);
     };
   }, []);
 
   const logout = async () => {
     try {
-      clearAuthToken();
+      clearSessionData(); // This also dispatches the auth state change event
       setUser(null);
       setIsAuthenticated(false);
       

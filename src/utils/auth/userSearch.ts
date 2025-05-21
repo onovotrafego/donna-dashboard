@@ -2,10 +2,12 @@
 import { supabase, debugSupabaseQuery } from '@/integrations/supabase/client';
 
 // Define a type for the user object to prevent excessive type instantiation
-type UserRecord = {
+export type UserRecord = {
   id: string;
   email?: string | null;
-  remotejid?: string;
+  remotejid?: string | null;
+  password_hash?: string | null;
+  nome?: string | null;
   [key: string]: any; // Allow for other properties that may be present
 };
 
@@ -127,7 +129,7 @@ export const searchUsersByManualEmailComparison = async (targetEmail: string): P
   
   if (result.data && result.data.length > 0) {
     console.log(`[AUTH] Retrieved ${result.data.length} users for manual email comparison`);
-    logAvailableEmails(result.data);
+    logAvailableEmails(result.data as UserRecord[]);
     
     const foundUser = findUserByEmail(result.data as UserRecord[], targetEmail);
     if (foundUser) {
