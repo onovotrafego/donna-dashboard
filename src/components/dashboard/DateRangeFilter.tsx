@@ -1,10 +1,10 @@
 
 import React, { useState } from 'react';
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subMonths } from 'date-fns';
-import { Calendar, CalendarRange } from '@/components/ui/calendar';
+import { Calendar } from '@/components/ui/calendar';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { CalendarRange as CalendarRangeIcon, Filter } from 'lucide-react';
+import { Filter } from 'lucide-react';
 
 interface DateRangeFilterProps {
   onRangeChange: (range: DateRange) => void;
@@ -16,13 +16,19 @@ export interface DateRange {
 }
 
 const DateRangeFilter: React.FC<DateRangeFilterProps> = ({ onRangeChange }) => {
-  const [dateRange, setDateRange] = useState<CalendarRange>({
+  const [dateRange, setDateRange] = useState<{
+    from: Date;
+    to: Date | undefined;
+  }>({
     from: startOfMonth(new Date()),
     to: new Date()
   });
   const [isOpen, setIsOpen] = useState(false);
   
-  const handleRangeSelect = (range: CalendarRange | undefined) => {
+  const handleRangeSelect = (range: {
+    from: Date;
+    to: Date | undefined;
+  } | undefined) => {
     if (range?.from && range?.to) {
       setDateRange(range);
       onRangeChange({ from: range.from, to: range.to });
