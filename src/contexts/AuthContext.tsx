@@ -35,27 +35,27 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   // Load user from local storage and set up listeners
   useEffect(() => {
-    const loadUser = () => {
+    const loadUser = async () => {
       try {
+        // First, check if user is authenticated with Supabase
+        const { data: { session } } = await supabase.auth.getSession();
+        const { data: { user: supabaseUser } } = await supabase.auth.getUser();
+        
+        // Use custom token as fallback
         const token = getAuthToken();
         
-        if (!token) {
-          setUser(null);
-          setIsAuthenticated(false);
-          setLoading(false);
-          return;
-        }
-        
+        // Get stored user info
         const userId = localStorage.getItem('user_id');
         const userName = localStorage.getItem('user_name');
         
-        if (userId && userName) {
+        // Check if authenticated through Supabase or custom token
+        if ((supabaseUser || token) && userId && userName) {
           console.log('[AUTH] Restored user session:', userId, userName);
           setUser({ id: userId, name: userName });
           setIsAuthenticated(true);
         } else {
-          console.log('[AUTH] Invalid user data in session');
-          clearAuthToken(); // Clean up invalid session
+          console.log('[AUTH] No active session found');
+          clearAuthToken(); // Clean up any invalid session
           setUser(null);
           setIsAuthenticated(false);
         }
@@ -71,6 +71,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     
     // Initial load of user data
     loadUser();
+    
+    // Set up Supabase auth state change listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        console.log('[AUTH] Supabase auth state changed:', event, session?.user?.id);
+        loadUser();
+      }
+    );
     
     // Listen for storage events (for multi-tab support)
     const handleStorageChange = (event) => {
@@ -90,6 +98,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     window.addEventListener(AUTH_STATE_CHANGE_EVENT, handleAuthStateChange);
     
     return () => {
+      subscription.unsubscribe();
       window.removeEventListener('storage', handleStorageChange);
       window.removeEventListener(AUTH_STATE_CHANGE_EVENT, handleAuthStateChange);
     };
@@ -97,7 +106,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const logout = async () => {
     try {
-      clearSessionData(); // This also dispatches the auth state change event
+      await clearSessionData(); // This also dispatches the auth state change event
       setUser(null);
       setIsAuthenticated(false);
       

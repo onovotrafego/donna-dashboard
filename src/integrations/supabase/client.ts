@@ -54,7 +54,19 @@ export const debugSupabaseQuery = async (queryPromise, queryName) => {
   }
 };
 
-// New token-based session management
+// Direct access to auth session
+export const getAuthUser = async () => {
+  const { data } = await supabase.auth.getUser();
+  return data?.user;
+};
+
+// Get current session
+export const getAuthSession = async () => {
+  const { data } = await supabase.auth.getSession();
+  return data?.session;
+};
+
+// Token-based session management (legacy)
 export const setAuthToken = (token: string, expiresIn = 86400) => {
   const expiresAt = new Date(Date.now() + expiresIn * 1000).toISOString();
   localStorage.setItem('auth_token', token);

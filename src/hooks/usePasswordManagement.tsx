@@ -7,6 +7,7 @@ import {
   loginWithPassword, 
   setSessionData 
 } from '@/utils/auth';
+import { supabase } from '@/integrations/supabase/client';
 
 /**
  * Hook para gerenciar operações relacionadas a senha
@@ -51,8 +52,35 @@ export const usePasswordManagement = () => {
       
       console.log("[AUTH] Senha criada, configurando dados da sessão");
       
-      // Definir sessão de autenticação
-      setSessionData(userId, userName || 'Usuário');
+      // Criar sessão Supabase para o usuário
+      const email = `${userId}@donna.app`; // Email fictício para Supabase
+      
+      try {
+        // Tenta criar usuário no Supabase (pode falhar se já existe)
+        const { error: signUpError } = await supabase.auth.signUp({
+          email,
+          password,
+        });
+        
+        if (signUpError && signUpError.message !== 'User already registered') {
+          console.warn("[AUTH] Supabase signup error:", signUpError);
+        }
+        
+        // Login com o usuário criado
+        const { error: signInError } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+        
+        if (signInError) {
+          console.warn("[AUTH] Supabase signin error:", signInError);
+        }
+      } catch (supabaseError) {
+        console.error("[AUTH] Supabase auth error:", supabaseError);
+      }
+      
+      // Definir sessão de autenticação local (fallback)
+      await setSessionData(userId, userName || 'Usuário');
       
       toast({
         title: "Senha criada com sucesso!",
@@ -109,8 +137,42 @@ export const usePasswordManagement = () => {
       
       console.log("[AUTH] Senha validada com sucesso, configurando sessão");
       
-      // Definir sessão de autenticação
-      setSessionData(userId, userName || 'Usuário');
+      // Try to authenticate with Supabase first
+      const email = `${userId}@donna.app`; // Email fictício para Supabase
+      
+      try {
+        // Tenta fazer login no Supabase
+        const { error: signInError } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+        
+        // Se não conseguir fazer login, pode ser porque o usuário não existe no Supabase
+        if (signInError) {
+          console.log("[AUTH] Supabase login failed, trying to create user:", signInError);
+          
+          // Tenta criar o usuário no Supabase
+          const { error: signUpError } = await supabase.auth.signUp({
+            email,
+            password,
+          });
+          
+          if (signUpError) {
+            console.warn("[AUTH] Couldn't create user in Supabase:", signUpError);
+          } else {
+            // Tenta login novamente
+            await supabase.auth.signInWithPassword({
+              email,
+              password,
+            });
+          }
+        }
+      } catch (supabaseError) {
+        console.error("[AUTH] Supabase auth error:", supabaseError);
+      }
+      
+      // Definir sessão de autenticação (fallback para caso o Supabase falhe)
+      await setSessionData(userId, userName || 'Usuário');
       
       toast({
         title: "Login realizado com sucesso!",

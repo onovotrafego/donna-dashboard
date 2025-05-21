@@ -1,5 +1,5 @@
 
-import { setAuthToken } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/client';
 import { v4 as uuidv4 } from 'uuid';
 
 // Custom event name for authentication state changes
@@ -14,7 +14,7 @@ export const notifyAuthStateChange = () => {
 };
 
 // Set user session data in browser storage and create auth token
-export const setSessionData = (userId: string, userName: string) => {
+export const setSessionData = async (userId: string, userName: string) => {
   if (!userId) {
     console.error("[AUTH] Missing userId when setting session data");
     throw new Error('ID de usuário não fornecido para criar sessão');
@@ -23,13 +23,22 @@ export const setSessionData = (userId: string, userName: string) => {
   console.log("[AUTH] Setting session data for user:", userId, userName);
   
   try {
-    // Generate a simple token (in a real app you'd want to use JWT)
-    const token = uuidv4();
+    // Use Supabase custom auth to create a user session
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: `${userId}@donna.app`,
+      password: uuidv4(), // Use a random password (this is just a workaround)
+    });
     
-    // Set token in localStorage with 24h expiration
-    setAuthToken(token);
+    if (error) {
+      console.error("[AUTH] Supabase auth error:", error);
+      
+      // Fallback to custom token-based auth if Supabase auth fails
+      const token = uuidv4();
+      localStorage.setItem('auth_token', token);
+      localStorage.setItem('auth_expires_at', new Date(Date.now() + 86400 * 1000).toISOString());
+    }
     
-    // Set user data
+    // Store the user info regardless of Supabase auth result
     localStorage.setItem('user_id', userId);
     localStorage.setItem('user_name', userName || 'Usuário');
     
@@ -37,6 +46,8 @@ export const setSessionData = (userId: string, userName: string) => {
     
     // Notify all components that auth state changed
     notifyAuthStateChange();
+    
+    return data?.session;
   } catch (error) {
     console.error("[AUTH] Error setting session data:", error);
     throw new Error('Erro ao configurar sessão do usuário');
@@ -44,7 +55,15 @@ export const setSessionData = (userId: string, userName: string) => {
 };
 
 // Clear session data
-export const clearSessionData = () => {
+export const clearSessionData = async () => {
+  try {
+    // Sign out from Supabase
+    await supabase.auth.signOut();
+  } catch (error) {
+    console.error("[AUTH] Error during Supabase signout:", error);
+  }
+  
+  // Also clear local storage items
   localStorage.removeItem('auth_token');
   localStorage.removeItem('auth_expires_at');
   localStorage.removeItem('user_id');
