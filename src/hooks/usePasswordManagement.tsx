@@ -1,0 +1,143 @@
+
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useToast } from '@/hooks/use-toast';
+import { 
+  createUserPassword, 
+  loginWithPassword, 
+  setSessionData 
+} from '@/utils/auth';
+
+/**
+ * Hook para gerenciar operações relacionadas a senha
+ */
+export const usePasswordManagement = () => {
+  const [loading, setLoading] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
+  const navigate = useNavigate();
+  const { toast } = useToast();
+
+  // Criar uma nova senha para o usuário
+  const createUserPasswordOp = async (userId: string, password: string, confirmPassword: string, userName: string) => {
+    try {
+      setAuthError(null);
+      
+      if (password !== confirmPassword) {
+        setAuthError("As senhas não coincidem");
+        toast({
+          title: "Senhas não coincidem",
+          description: "Por favor, confirme que as senhas são iguais",
+          variant: "destructive"
+        });
+        return false;
+      }
+      
+      if (password.length < 6) {
+        setAuthError("Sua senha deve ter pelo menos 6 caracteres");
+        toast({
+          title: "Senha muito curta",
+          description: "Sua senha deve ter pelo menos 6 caracteres",
+          variant: "destructive"
+        });
+        return false;
+      }
+      
+      setLoading(true);
+      
+      console.log("[AUTH] Criando senha para usuário:", userId);
+      
+      // Atualizar usuário com nova senha
+      await createUserPassword(userId, password);
+      
+      console.log("[AUTH] Senha criada, configurando dados da sessão");
+      
+      // Definir sessão de autenticação
+      setSessionData(userId, userName || 'Usuário');
+      
+      toast({
+        title: "Senha criada com sucesso!",
+        description: "Bem-vindo ao seu dashboard financeiro."
+      });
+      
+      navigate('/');
+      return true;
+    } catch (error) {
+      console.error('Erro ao criar senha:', error);
+      setAuthError("Ocorreu um erro ao criar sua senha. Tente novamente.");
+      toast({
+        title: "Erro no sistema",
+        description: "Ocorreu um erro ao criar sua senha. Tente novamente.",
+        variant: "destructive"
+      });
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Fazer login (verificar senha)
+  const loginUser = async (userId: string, password: string, passwordHash: string, userName: string) => {
+    try {
+      setLoading(true);
+      setAuthError(null);
+
+      if (!password) {
+        setAuthError("Por favor, digite sua senha");
+        toast({
+          title: "Campo obrigatório",
+          description: "Por favor, digite sua senha",
+          variant: "destructive"
+        });
+        return false;
+      }
+
+      console.log("[AUTH] Tentando login para usuário:", userId);
+      
+      // Verificação usando a função loginWithPassword
+      const isValid = await loginWithPassword(userId, password, passwordHash);
+      
+      if (!isValid) {
+        console.log("[AUTH] Validação de senha falhou");
+        setAuthError("Senha incorreta. Por favor, verifique e tente novamente.");
+        toast({
+          title: "Senha incorreta",
+          description: "Por favor, verifique sua senha e tente novamente.",
+          variant: "destructive"
+        });
+        return false;
+      }
+      
+      console.log("[AUTH] Senha validada com sucesso, configurando sessão");
+      
+      // Definir sessão de autenticação
+      setSessionData(userId, userName || 'Usuário');
+      
+      toast({
+        title: "Login realizado com sucesso!",
+        description: "Bem-vindo ao seu dashboard financeiro."
+      });
+      
+      navigate('/');
+      return true;
+    } catch (error) {
+      console.error('Erro de login:', error);
+      setAuthError("Ocorreu um erro durante o login. Tente novamente.");
+      toast({
+        title: "Erro no sistema",
+        description: "Ocorreu um erro durante o login. Tente novamente.",
+        variant: "destructive"
+      });
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return {
+    loading,
+    authError,
+    setAuthError,
+    createUserPasswordOp,
+    loginUser
+  };
+};
