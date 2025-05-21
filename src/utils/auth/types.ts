@@ -6,5 +6,10 @@ export type UserRecord = {
   remotejid?: string | null;
   password_hash?: string | null;
   nome?: string | null;
-  [key: string]: any; // Permite outras propriedades que podem estar presentes
+  status_assinatura_cliente?: string | null;
+  data_expiracao?: string | null;
+  created_at?: string | null;
+  completou_cadastro?: boolean | null;
+  // Use a union with never to restrict the indexer to only unknown properties
+  [key: string]: string | null | boolean | undefined;
 };

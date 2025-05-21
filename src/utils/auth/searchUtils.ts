@@ -18,6 +18,21 @@ export const verifyClientIds = () => {
   }
 };
 
+// Helper function to safely convert database results to UserRecord
+const safeUserRecord = (data: any): UserRecord => {
+  return {
+    id: data.id,
+    email: data.email || null,
+    remotejid: data.remotejid || null,
+    password_hash: data.password_hash || null,
+    nome: data.nome || null,
+    status_assinatura_cliente: data.status_assinatura_cliente || null,
+    data_expiracao: data.data_expiracao || null,
+    created_at: data.created_at || null,
+    completou_cadastro: data.completou_cadastro || null,
+  };
+};
+
 /**
  * Executa uma consulta padrão ao banco de dados
  */
@@ -37,7 +52,7 @@ export const executeQuery = async (field: string, value: string, functionName: s
   
   if (data && data.length > 0) {
     console.log(`[AUTH] ${functionName}: Encontrado usuário com id=${data[0].id}`);
-    return data[0] as UserRecord;
+    return safeUserRecord(data[0]);
   }
   
   console.log(`[AUTH] ${functionName}: Nenhum usuário encontrado`);
@@ -63,7 +78,7 @@ export const executeInsensitiveQuery = async (field: string, value: string, func
   
   if (data && data.length > 0) {
     console.log(`[AUTH] ${functionName}: Encontrado usuário com id=${data[0].id}`);
-    return data[0] as UserRecord;
+    return safeUserRecord(data[0]);
   }
   
   console.log(`[AUTH] ${functionName}: Nenhum usuário encontrado`);
@@ -73,7 +88,7 @@ export const executeInsensitiveQuery = async (field: string, value: string, func
 /**
  * Encontra um usuário pelo email na lista de registros
  */
-export const findUserByEmail = (users: UserRecord[], targetEmail: string): UserRecord | null => {
+export const findUserByEmail = (users: any[], targetEmail: string): UserRecord | null => {
   console.log(`[AUTH] findUserByEmail: Procurando por email ${targetEmail} entre ${users.length} usuários`);
   
   const normalizedTargetEmail = targetEmail.toLowerCase().trim();
@@ -81,7 +96,7 @@ export const findUserByEmail = (users: UserRecord[], targetEmail: string): UserR
   for (const user of users) {
     if (user.email && user.email.toLowerCase().trim() === normalizedTargetEmail) {
       console.log(`[AUTH] findUserByEmail: Encontrado usuário com email correspondente id=${user.id}`);
-      return user;
+      return safeUserRecord(user);
     }
   }
   
@@ -92,7 +107,7 @@ export const findUserByEmail = (users: UserRecord[], targetEmail: string): UserR
 /**
  * Registra os emails disponíveis para depuração
  */
-export const logAvailableEmails = (users: UserRecord[]): void => {
+export const logAvailableEmails = (users: any[]): void => {
   console.log('[AUTH] logAvailableEmails: Lista de emails disponíveis para comparação:');
   
   const emails = users
