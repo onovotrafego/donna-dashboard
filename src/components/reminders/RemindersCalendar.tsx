@@ -27,6 +27,16 @@ const RemindersCalendar: React.FC<RemindersCalendarProps> = ({
         data: reminders[0].lembrete_data,
         mensagem: reminders[0].mensagem_lembrete.substring(0, 30) + '...'
       });
+      
+      // Log client_ids para verificar se estão sendo carregados corretamente
+      const uniqueClientIds = [...new Set(reminders.map(r => r.client_id))];
+      console.log('RemindersCalendar - Client IDs únicos nos reminders:', uniqueClientIds);
+      
+      // Verificar se o client_id no localStorage corresponde aos reminders
+      const localStorageClientId = localStorage.getItem('user_id');
+      console.log('RemindersCalendar - localStorage client_id:', localStorageClientId);
+      console.log('RemindersCalendar - Todos os reminders são do cliente atual:', 
+        reminders.every(r => r.client_id === localStorageClientId));
     }
   }, [reminders]);
   

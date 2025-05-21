@@ -101,7 +101,7 @@ export const findUserByEmail = (users: Array<UserRecord>, targetEmail: string): 
   return null;
 };
 
-// Nova função para ajudar a depurar e garantir consistência de IDs
+// Função para ajudar a depurar e garantir consistência de IDs
 export const verifyClientIds = (): void => {
   const localStorageUserId = localStorage.getItem('user_id');
   console.log(`[AUTH] Verificando IDs de cliente - localStorage user_id: ${localStorageUserId}`);
