@@ -26,45 +26,14 @@ const RemindersCalendar: React.FC<RemindersCalendarProps> = ({
     return acc;
   }, {} as Record<string, Reminder[]>);
   
+  console.log('RemindersCalendar - Total reminders:', reminders.length);
+  console.log('RemindersCalendar - Grouped reminders:', remindersByDate);
+  
   // Encontra o dia com mais lembretes para escala visual
   const maxRemindersCount = Math.max(
     1, // Mínimo 1 para evitar divisão por zero
     ...Object.values(remindersByDate).map(dayReminders => dayReminders.length)
   );
-  
-  // Renderiza um indicador visual para cada dia com lembretes
-  const renderDayContent = (props: { date: Date }) => {
-    const dateKey = format(props.date, 'yyyy-MM-dd');
-    const dayReminders = remindersByDate[dateKey] || [];
-    
-    if (dayReminders.length === 0) return null;
-    
-    // Calcula intensidade com base na quantidade de lembretes
-    const intensity = (dayReminders.length / maxRemindersCount) * 100;
-    
-    // Verifica se há lembretes recorrentes
-    const hasRecurring = dayReminders.some(reminder => reminder.recorrencia);
-    
-    // Verifica se há lembretes com valor
-    const hasValues = dayReminders.some(reminder => reminder.valor);
-    
-    return (
-      <div className="flex gap-1 justify-center mt-1">
-        {/* Indicador principal baseado na quantidade */}
-        <div 
-          className={`w-2 h-2 rounded-full ${hasRecurring ? 'bg-primary' : 'bg-secondary'}`}
-          style={{
-            opacity: 0.3 + (intensity / 100) * 0.7 // Varia de 0.3 a 1.0
-          }}
-        />
-        
-        {/* Indicador adicional para lembretes com valor */}
-        {hasValues && (
-          <div className="w-2 h-2 rounded-full bg-finance-alert" style={{ opacity: 0.7 }} />
-        )}
-      </div>
-    );
-  };
 
   return (
     <div className="bg-background rounded-lg p-1">
@@ -75,12 +44,32 @@ const RemindersCalendar: React.FC<RemindersCalendarProps> = ({
         locale={ptBR}
         showOutsideDays={true}
         components={{
-          DayContent: (props) => (
-            <>
-              {props.date.getDate()}
-              {renderDayContent({ date: props.date })}
-            </>
-          )
+          DayContent: ({ date }) => {
+            const dateKey = format(date, 'yyyy-MM-dd');
+            const dayReminders = remindersByDate[dateKey] || [];
+            
+            return (
+              <>
+                {date.getDate()}
+                {dayReminders.length > 0 && (
+                  <div className="flex gap-1 justify-center mt-1">
+                    {/* Indicador principal baseado na quantidade */}
+                    <div 
+                      className={`w-2 h-2 rounded-full ${dayReminders.some(reminder => reminder.recorrencia) ? 'bg-primary' : 'bg-secondary'}`}
+                      style={{
+                        opacity: 0.3 + ((dayReminders.length / maxRemindersCount) * 0.7) // Varia de 0.3 a 1.0
+                      }}
+                    />
+                    
+                    {/* Indicador adicional para lembretes com valor */}
+                    {dayReminders.some(reminder => reminder.valor) && (
+                      <div className="w-2 h-2 rounded-full bg-finance-alert" style={{ opacity: 0.7 }} />
+                    )}
+                  </div>
+                )}
+              </>
+            );
+          }
         }}
         className="rounded-md border"
       />

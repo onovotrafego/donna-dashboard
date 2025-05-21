@@ -58,7 +58,17 @@ export const logAvailableEmails = (users: Array<UserRecord>): void => {
 
 // Compara e encontra usuário por email
 export const findUserByEmail = (users: Array<UserRecord>, targetEmail: string): UserRecord | null => {
+  if (!targetEmail || typeof targetEmail !== 'string') {
+    console.error('[AUTH] Invalid email provided to findUserByEmail');
+    return null;
+  }
+
   const trimmedTargetEmail = targetEmail.trim().toLowerCase();
+  
+  if (!users || !Array.isArray(users)) {
+    console.error('[AUTH] Invalid users array provided to findUserByEmail');
+    return null;
+  }
   
   for (const user of users) {
     if (user.email && typeof user.email === 'string') {
