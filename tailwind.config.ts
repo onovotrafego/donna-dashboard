@@ -1,3 +1,4 @@
+
 import type { Config } from "tailwindcss"
 
 const config: Config = {
@@ -54,6 +55,8 @@ const config: Config = {
         finance: {
           alert: "#F97066",
           secondary: "#7DD3FC", 
+          "background-start": "#1A1F2C",
+          "background-end": "#121418",
         }
       },
       borderRadius: {

@@ -4,40 +4,50 @@ import type { UserRecord } from './types';
 
 // Executa consulta exata na tabela de clientes
 export const executeQuery = async (field: string, value: string, operationName: string): Promise<UserRecord | null> => {
-  const result = await debugSupabaseQuery(
-    supabase
-      .from('donna_clientes')
-      .select('*')
-      .eq(field, value)
-      .maybeSingle(),
-    operationName
-  );
-  
-  if (result.error) {
-    console.error(`[AUTH] Error executing query: ${result.error.message}`);
+  try {
+    const result = await debugSupabaseQuery(
+      supabase
+        .from('donna_clientes')
+        .select('*')
+        .eq(field, value)
+        .maybeSingle(),
+      operationName
+    );
+    
+    if (result.error) {
+      console.error(`[AUTH] Error executing query: ${result.error.message}`);
+      return null;
+    }
+    
+    return result.data as UserRecord | null;
+  } catch (error) {
+    console.error(`[AUTH] Exception in executeQuery: ${error}`);
     return null;
   }
-  
-  return result.data as UserRecord | null;
 };
 
 // Executa consulta case-insensitive na tabela de clientes
 export const executeInsensitiveQuery = async (field: string, value: string, operationName: string): Promise<UserRecord | null> => {
-  const result = await debugSupabaseQuery(
-    supabase
-      .from('donna_clientes')
-      .select('*')
-      .ilike(field, value)
-      .maybeSingle(),
-    operationName
-  );
-  
-  if (result.error) {
-    console.error(`[AUTH] Error executing insensitive query: ${result.error.message}`);
+  try {
+    const result = await debugSupabaseQuery(
+      supabase
+        .from('donna_clientes')
+        .select('*')
+        .ilike(field, value)
+        .maybeSingle(),
+      operationName
+    );
+    
+    if (result.error) {
+      console.error(`[AUTH] Error executing insensitive query: ${result.error.message}`);
+      return null;
+    }
+    
+    return result.data as UserRecord | null;
+  } catch (error) {
+    console.error(`[AUTH] Exception in executeInsensitiveQuery: ${error}`);
     return null;
   }
-  
-  return result.data as UserRecord | null;
 };
 
 // Loga emails disponíveis para debug
