@@ -14,13 +14,13 @@ import SettingsPage from "./pages/SettingsPage";
 import AuthPage from "./pages/AuthPage";
 
 // Configure o QueryClient com configurações aprimoradas para recarregamento de dados
-const queryClient = new QueryClient({
+export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       refetchOnMount: true,
       refetchOnWindowFocus: true,
       refetchOnReconnect: true,
-      staleTime: 5 * 60 * 1000, // 5 minutos
+      staleTime: 0, // Alterado para 0 para sempre recarregar dados
       retry: 2,
     },
   },

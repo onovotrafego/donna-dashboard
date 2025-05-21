@@ -2,11 +2,13 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
-import { loginWithPassword, setSessionData } from '@/utils/auth';
-import { supabase } from '@/integrations/supabase/client';
+import { loginWithPassword } from '@/utils/auth';
+import { setSessionData } from '@/utils/auth/authSession';
+import { supabase, debugSupabaseQuery } from '@/integrations/supabase/client';
+import { queryClient } from '@/App'; // Import queryClient
 
 /**
- * Hook for managing login functionality
+ * Hook para gerenciar login
  */
 export const useLoginManagement = () => {
   const [loading, setLoading] = useState(false);
@@ -14,17 +16,41 @@ export const useLoginManagement = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  const loginUser = async (
-    userId: string, 
-    password: string, 
-    passwordHash: string, 
-    userName: string
-  ) => {
+  const preloadRemindersData = async (clientId: string) => {
+    console.log('[AUTH] Precarregando dados de lembretes para cliente:', clientId);
+    try {
+      const result = await debugSupabaseQuery(
+        supabase
+          .from('donna_lembretes')
+          .select('*')
+          .eq('client_id', clientId),
+        'preload-user-reminders'
+      );
+      
+      if (result.error) {
+        console.error('[AUTH] Erro ao pré-carregar lembretes:', result.error);
+        return;
+      }
+      
+      console.log(`[AUTH] Pré-carregados ${result.data.length} lembretes com sucesso`);
+      
+      // Armazenar os lembretes no cache do React Query
+      queryClient.setQueryData(['reminders', clientId], result.data);
+      console.log('[AUTH] Dados de lembretes armazenados no cache do React Query');
+    } catch (error) {
+      console.error('[AUTH] Exceção ao pré-carregar lembretes:', error);
+    }
+  };
+
+  // Login do usuário
+  const loginUser = async (userId: string, password: string, passwordHash: string, userName: string) => {
     try {
       setLoading(true);
       setAuthError(null);
-
-      if (!password) {
+      
+      console.log("[AUTH] Tentando login para usuário:", userId);
+      
+      if (!password || password.trim() === '') {
         setAuthError("Por favor, digite sua senha");
         toast({
           title: "Campo obrigatório",
@@ -33,80 +59,49 @@ export const useLoginManagement = () => {
         });
         return false;
       }
-
-      console.log("[AUTH] Tentando login para usuário:", userId);
       
-      // Verificação usando a função loginWithPassword
-      const isValid = await loginWithPassword(userId, password, passwordHash);
+      // Verificar senha
+      const isPasswordValid = await loginWithPassword(userId, password, passwordHash);
       
-      if (!isValid) {
-        console.log("[AUTH] Validação de senha falhou");
-        setAuthError("Senha incorreta. Por favor, verifique e tente novamente.");
+      if (!isPasswordValid) {
+        console.log("[AUTH] Falha no login: senha inválida");
+        setAuthError("Senha incorreta. Tente novamente.");
         toast({
-          title: "Senha incorreta",
-          description: "Por favor, verifique sua senha e tente novamente.",
+          title: "Erro de autenticação",
+          description: "Senha incorreta. Tente novamente.",
           variant: "destructive"
         });
         return false;
       }
       
-      console.log("[AUTH] Senha validada com sucesso, configurando sessão");
+      // Criar sessão personalizada
+      await setSessionData(userId, userName);
       
-      // Try to authenticate with Supabase directly using user credentials
-      try {
-        const { data, error } = await supabase.auth.signInWithPassword({
-          email: `${userId}@donna.app`,
-          password,
-        });
-        
-        if (error) {
-          console.log("[AUTH] Erro ao fazer login com Supabase:", error);
-          
-          // If login fails, try to sign up the user
-          if (error.message === 'Invalid login credentials') {
-            console.log("[AUTH] Usuário não existe no Supabase, tentando cadastrar...");
-            
-            const { error: signUpError } = await supabase.auth.signUp({
-              email: `${userId}@donna.app`,
-              password,
-            });
-            
-            if (signUpError) {
-              console.warn("[AUTH] Falha ao cadastrar no Supabase:", signUpError);
-            } else {
-              console.log("[AUTH] Usuário cadastrado no Supabase com sucesso!");
-              // Try login again
-              await supabase.auth.signInWithPassword({
-                email: `${userId}@donna.app`,
-                password,
-              });
-            }
-          }
-        } else {
-          console.log("[AUTH] Autenticado com sucesso no Supabase!");
-        }
-      } catch (supabaseError) {
-        console.error("[AUTH] Erro crítico com Supabase auth:", supabaseError);
-      }
+      // Pré-carregar dados de lembretes após o login bem-sucedido
+      await preloadRemindersData(userId);
       
-      // Definir sessão de autenticação local (será usada como fallback)
-      await setSessionData(userId, userName || 'Usuário');
+      console.log("[AUTH] Login realizado com sucesso para:", userId);
       
+      // Notificar usuário
       toast({
-        title: "Login realizado com sucesso!",
-        description: "Bem-vindo ao seu dashboard financeiro."
+        title: "Login realizado com sucesso",
+        description: `Bem-vindo, ${userName}!`
       });
       
+      // Redirecionar para página principal
       navigate('/');
+      
       return true;
     } catch (error) {
-      console.error('Erro de login:', error);
+      console.error("[AUTH] Erro durante o login:", error);
+      
       setAuthError("Ocorreu um erro durante o login. Tente novamente.");
       toast({
-        title: "Erro no sistema",
+        title: "Erro de login",
         description: "Ocorreu um erro durante o login. Tente novamente.",
         variant: "destructive"
       });
+      
       return false;
     } finally {
       setLoading(false);

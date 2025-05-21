@@ -22,29 +22,34 @@ const CommitmentsPage: React.FC = () => {
   const { toast } = useToast();
   const location = useLocation();
   const queryClient = useQueryClient();
+  const [forceRefresh, setForceRefresh] = useState(0); // Estado para forçar atualização
+  
+  // Mostrar o pathname e ID do usuário a cada renderização
+  console.log('[COMMITMENTS] Renderizando CommitmentsPage com pathname:', location.pathname);
+  console.log('[COMMITMENTS] Auth context user:', user);
   
   // Enhanced logging for debugging
   useEffect(() => {
-    console.log('[COMMITMENTS] Componente montado com pathname:', location.pathname);
-    console.log('[COMMITMENTS] Auth context user:', user);
+    console.log('[COMMITMENTS] Componente montado ou atualizado');
     console.log('[COMMITMENTS] Local storage user ID:', localStorage.getItem('user_id'));
     
     // Verify the client IDs for debugging
     verifyClientIds();
     
-    // Force invalidate the query cache for reminders
-    queryClient.invalidateQueries({ queryKey: ['reminders'] });
+    // Verificar dados em cache
+    const cachedData = queryClient.getQueryData(['reminders', localStorage.getItem('user_id')]);
+    console.log('[COMMITMENTS] Dados em cache:', cachedData ? `${Array.isArray(cachedData) ? cachedData.length : 0} itens` : 'Nenhum');
     
     // Verify the Supabase auth session
     supabase.auth.getSession().then(({ data }) => {
-      console.log('[COMMITMENTS] Supabase session user:', data.session?.user);
+      console.log('[COMMITMENTS] Supabase session user:', data.session?.user?.id || 'none');
     });
     
     // Cleanup function
     return () => {
       console.log('[COMMITMENTS] Componente desmontado');
     };
-  }, [user, location.pathname, queryClient]);
+  }, [queryClient]);
   
   // Recuperar o client_id do localStorage, que é o ID correto para consultas
   const clientId = localStorage.getItem('user_id');
@@ -57,6 +62,7 @@ const CommitmentsPage: React.FC = () => {
     }
     
     console.log('[COMMITMENTS] Iniciando busca de lembretes para client_id:', clientId);
+    console.log('[COMMITMENTS] Timestamp da requisição:', new Date().toISOString());
     
     try {
       const result = await debugSupabaseQuery(
@@ -75,6 +81,7 @@ const CommitmentsPage: React.FC = () => {
       console.log('[COMMITMENTS] Lembretes buscados com sucesso:', result.data?.length || 0);
       if (result.data && result.data.length > 0) {
         console.log('[COMMITMENTS] Exemplo de lembrete:', result.data[0]);
+        console.log('[COMMITMENTS] IDs dos primeiros 3 lembretes:', result.data.slice(0, 3).map(r => r.id).join(', '));
       } else {
         console.log('[COMMITMENTS] Nenhum lembrete encontrado para este cliente');
       }
@@ -92,9 +99,10 @@ const CommitmentsPage: React.FC = () => {
     isLoading, 
     error,
     refetch,
-    isRefetching 
+    isRefetching,
+    dataUpdatedAt
   } = useQuery({
-    queryKey: ['reminders', clientId, location.pathname, Date.now()], // Adicionar timestamp para forçar refetch
+    queryKey: ['reminders', clientId, forceRefresh], // Incluir forceRefresh para refazer a consulta
     queryFn: fetchReminders,
     enabled: !!clientId,
     refetchOnMount: 'always',
@@ -111,22 +119,34 @@ const CommitmentsPage: React.FC = () => {
       try {
         await refetch();
         console.log('[COMMITMENTS] Refetch concluído com sucesso');
+        console.log('[COMMITMENTS] Última atualização:', new Date(dataUpdatedAt).toLocaleTimeString());
       } catch (err) {
         console.error('[COMMITMENTS] Erro durante o refetch:', err);
       }
     };
     
     forceRefetch();
-  }, [refetch, location.pathname]);
+    
+    // Configurar um intervalo para refetch automático a cada 30 segundos
+    const intervalId = setInterval(() => {
+      console.log('[COMMITMENTS] Executando refetch programado');
+      refetch();
+    }, 30000);
+    
+    return () => {
+      clearInterval(intervalId);
+    };
+  }, [refetch, location.pathname, dataUpdatedAt]);
   
   useEffect(() => {
     console.log('[COMMITMENTS] Estado atual dos lembretes:', { 
       count: reminders.length,
       isLoading,
       isRefetching,
-      error: error ? 'Sim' : 'Não'
+      error: error ? 'Sim' : 'Não',
+      dataUpdatedAt: new Date(dataUpdatedAt).toLocaleTimeString()
     });
-  }, [reminders, isLoading, isRefetching, error]);
+  }, [reminders, isLoading, isRefetching, error, dataUpdatedAt]);
   
   // Filtra os lembretes pela data selecionada
   const selectedDateReminders = selectedDate 
@@ -151,12 +171,13 @@ const CommitmentsPage: React.FC = () => {
       description: "Buscando seus compromissos mais recentes..."
     });
     queryClient.invalidateQueries({ queryKey: ['reminders'] });
+    setForceRefresh(prev => prev + 1); // Incrementar para forçar novo fetch
     refetch();
   };
 
   // Renderiza o conteúdo da página
   const renderContent = () => {
-    if (isLoading || isRefetching) {
+    if (isLoading) {
       return (
         <div className="flex flex-col items-center justify-center p-8">
           <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
@@ -206,10 +227,26 @@ const CommitmentsPage: React.FC = () => {
           <button 
             onClick={handleRefresh}
             className="flex items-center text-sm bg-primary text-primary-foreground px-3 py-1 rounded hover:bg-primary/80"
+            aria-label="Atualizar dados"
           >
-            <RefreshCw className="mr-1 h-4 w-4" /> Atualizar
+            {isRefetching ? (
+              <>
+                <Loader2 className="mr-1 h-4 w-4 animate-spin" /> Atualizando...
+              </>
+            ) : (
+              <>
+                <RefreshCw className="mr-1 h-4 w-4" /> Atualizar
+              </>
+            )}
           </button>
         </div>
+        
+        {reminders.length > 0 && (
+          <div className="mb-4 text-sm text-muted-foreground">
+            Mostrando {reminders.length} compromissos • 
+            Última atualização: {new Date(dataUpdatedAt).toLocaleTimeString()}
+          </div>
+        )}
         
         <WeeklyRemindersHighlight 
           reminders={reminders} 

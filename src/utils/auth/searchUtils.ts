@@ -1,7 +1,6 @@
 
 import { supabase, debugSupabaseQuery } from '@/integrations/supabase/client';
 import type { UserRecord } from './types';
-import { PostgrestResponse } from '@supabase/supabase-js';
 
 // Executa consulta exata na tabela de clientes
 export const executeQuery = async (field: string, value: string, operationName: string): Promise<UserRecord | null> => {
