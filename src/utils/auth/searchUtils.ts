@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { UserRecord } from './types';
 
@@ -89,7 +88,7 @@ export const executeInsensitiveQuery = async (field: string, value: string, func
 /**
  * Encontra um usuário pelo email na lista de registros
  */
-export const findUserByEmail = (users: Record<string, any>[], targetEmail: string): UserRecord | null => {
+export const findUserByEmail = (users: Array<Record<string, any>>, targetEmail: string): UserRecord | null => {
   console.log(`[AUTH] findUserByEmail: Procurando por email ${targetEmail} entre ${users.length} usuários`);
   
   const normalizedTargetEmail = targetEmail.toLowerCase().trim();
@@ -108,7 +107,7 @@ export const findUserByEmail = (users: Record<string, any>[], targetEmail: strin
 /**
  * Registra os emails disponíveis para depuração
  */
-export const logAvailableEmails = (users: Record<string, any>[]): void => {
+export const logAvailableEmails = (users: Array<Record<string, any>>): void => {
   console.log('[AUTH] logAvailableEmails: Lista de emails disponíveis para comparação:');
   
   const emails = users
