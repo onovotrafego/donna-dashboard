@@ -1,6 +1,6 @@
 
 import { supabase, debugSupabaseQuery } from '@/integrations/supabase/client';
-import { UserRecord } from './types';
+import type { UserRecord } from './types';
 
 // Executa consulta exata na tabela de clientes
 export const executeQuery = async (field: string, value: string, operationName: string): Promise<UserRecord | null> => {
@@ -31,13 +31,13 @@ export const executeInsensitiveQuery = async (field: string, value: string, oper
 };
 
 // Loga emails disponíveis para debug
-export const logAvailableEmails = (users: UserRecord[]): void => {
+export const logAvailableEmails = (users: Array<UserRecord>): void => {
   console.log("[AUTH] Available emails:", 
     users.map(user => user.email).filter(Boolean).join(', '));
 };
 
 // Compara e encontra usuário por email
-export const findUserByEmail = (users: UserRecord[], targetEmail: string): UserRecord | null => {
+export const findUserByEmail = (users: Array<UserRecord>, targetEmail: string): UserRecord | null => {
   const trimmedTargetEmail = targetEmail.trim().toLowerCase();
   
   for (const user of users) {

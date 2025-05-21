@@ -24,6 +24,12 @@ export const debugSupabaseQuery = async (queryPromise, queryName) => {
     console.log(`[SUPABASE] Executing query: ${queryName}`);
     console.time(`Query ${queryName} execution time`);
     
+    // Get current user id for debugging
+    const userId = localStorage.getItem('user_id');
+    const supabaseUser = (await supabase.auth.getUser()).data.user;
+    
+    console.log(`[SUPABASE] Query executed with: Local user ID: ${userId}, Supabase user ID: ${supabaseUser?.id || 'none'}`);
+    
     const response = await queryPromise;
     console.timeEnd(`Query ${queryName} execution time`);
     

@@ -1,6 +1,5 @@
 
 import { supabase } from '@/integrations/supabase/client';
-import { v4 as uuidv4 } from 'uuid';
 
 // Custom event name for authentication state changes
 export const AUTH_STATE_CHANGE_EVENT = 'auth_state_change';
@@ -23,22 +22,7 @@ export const setSessionData = async (userId: string, userName: string) => {
   console.log("[AUTH] Setting session data for user:", userId, userName);
   
   try {
-    // Use Supabase custom auth to create a user session
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email: `${userId}@donna.app`,
-      password: uuidv4(), // Use a random password (this is just a workaround)
-    });
-    
-    if (error) {
-      console.error("[AUTH] Supabase auth error:", error);
-      
-      // Fallback to custom token-based auth if Supabase auth fails
-      const token = uuidv4();
-      localStorage.setItem('auth_token', token);
-      localStorage.setItem('auth_expires_at', new Date(Date.now() + 86400 * 1000).toISOString());
-    }
-    
-    // Store the user info regardless of Supabase auth result
+    // Use local storage to store user information regardless of Supabase auth result
     localStorage.setItem('user_id', userId);
     localStorage.setItem('user_name', userName || 'Usuário');
     
@@ -46,8 +30,6 @@ export const setSessionData = async (userId: string, userName: string) => {
     
     // Notify all components that auth state changed
     notifyAuthStateChange();
-    
-    return data?.session;
   } catch (error) {
     console.error("[AUTH] Error setting session data:", error);
     throw new Error('Erro ao configurar sessão do usuário');

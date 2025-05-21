@@ -1,7 +1,7 @@
 
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase, getAuthToken, clearAuthToken } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { AUTH_STATE_CHANGE_EVENT, clearSessionData } from '@/utils/auth';
 
@@ -37,31 +37,23 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   useEffect(() => {
     const loadUser = async () => {
       try {
-        // First, check if user is authenticated with Supabase
-        const { data: { session } } = await supabase.auth.getSession();
-        const { data: { user: supabaseUser } } = await supabase.auth.getUser();
-        
-        // Use custom token as fallback
-        const token = getAuthToken();
-        
-        // Get stored user info
+        // Check for logged in user in local storage
         const userId = localStorage.getItem('user_id');
         const userName = localStorage.getItem('user_name');
         
-        // Check if authenticated through Supabase or custom token
-        if ((supabaseUser || token) && userId && userName) {
+        console.log('[AUTH] Checking local storage for user:', userId, userName);
+        
+        if (userId && userName) {
           console.log('[AUTH] Restored user session:', userId, userName);
           setUser({ id: userId, name: userName });
           setIsAuthenticated(true);
         } else {
           console.log('[AUTH] No active session found');
-          clearAuthToken(); // Clean up any invalid session
           setUser(null);
           setIsAuthenticated(false);
         }
       } catch (error) {
         console.error('[AUTH] Error loading user session:', error);
-        clearAuthToken(); // Clean up on error
         setUser(null);
         setIsAuthenticated(false);
       } finally {
@@ -76,13 +68,16 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
         console.log('[AUTH] Supabase auth state changed:', event, session?.user?.id);
-        loadUser();
+        
+        // We don't want to update our local state directly from here
+        // as our app uses a custom auth mechanism alongside Supabase
+        // Just log the event for debugging
       }
     );
     
     // Listen for storage events (for multi-tab support)
     const handleStorageChange = (event) => {
-      if (event.key === 'auth_token' || event.key === 'user_id' || event.key === null) {
+      if (event.key === 'user_id' || event.key === 'user_name' || event.key === null) {
         console.log('[AUTH] Storage change detected, updating auth state');
         loadUser();
       }
