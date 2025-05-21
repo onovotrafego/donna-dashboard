@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
@@ -36,6 +35,7 @@ export const useLoginManagement = () => {
       
       // Armazenar os lembretes no cache do React Query
       queryClient.setQueryData(['reminders', clientId], result.data);
+      queryClient.invalidateQueries({ queryKey: ['reminders'] }); // Marcar como inválido para forçar refetch quando necessário
       console.log('[AUTH] Dados de lembretes armazenados no cache do React Query');
     } catch (error) {
       console.error('[AUTH] Exceção ao pré-carregar lembretes:', error);

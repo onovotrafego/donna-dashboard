@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -17,11 +16,12 @@ import AuthPage from "./pages/AuthPage";
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      refetchOnMount: true,
+      refetchOnMount: 'always',
       refetchOnWindowFocus: true,
       refetchOnReconnect: true,
-      staleTime: 0, // Alterado para 0 para sempre recarregar dados
-      retry: 2,
+      staleTime: 0, // Dados sempre considerados obsoletos
+      retry: 2, // Tentar novamente 2 vezes em caso de falha
+      refetchInterval: 60000, // Recarregar automaticamente a cada 60 segundos
     },
   },
 });
