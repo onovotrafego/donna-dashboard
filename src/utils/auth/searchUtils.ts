@@ -19,7 +19,7 @@ export const verifyClientIds = () => {
 };
 
 // Helper function to safely convert database results to UserRecord
-const safeUserRecord = (data: any): UserRecord => {
+const safeUserRecord = (data: Record<string, any>): UserRecord => {
   return {
     id: data.id,
     email: data.email || null,
@@ -88,7 +88,7 @@ export const executeInsensitiveQuery = async (field: string, value: string, func
 /**
  * Encontra um usuário pelo email na lista de registros
  */
-export const findUserByEmail = (users: any[], targetEmail: string): UserRecord | null => {
+export const findUserByEmail = (users: Record<string, any>[], targetEmail: string): UserRecord | null => {
   console.log(`[AUTH] findUserByEmail: Procurando por email ${targetEmail} entre ${users.length} usuários`);
   
   const normalizedTargetEmail = targetEmail.toLowerCase().trim();
@@ -107,7 +107,7 @@ export const findUserByEmail = (users: any[], targetEmail: string): UserRecord |
 /**
  * Registra os emails disponíveis para depuração
  */
-export const logAvailableEmails = (users: any[]): void => {
+export const logAvailableEmails = (users: Record<string, any>[]): void => {
   console.log('[AUTH] logAvailableEmails: Lista de emails disponíveis para comparação:');
   
   const emails = users

@@ -6,6 +6,7 @@ import MainLayout from '@/components/layout/MainLayout';
 import TransactionList from '@/components/dashboard/TransactionList';
 import DateRangeFilter, { DateRange } from '@/components/dashboard/DateRangeFilter';
 import TransactionHeatMap from '@/components/dashboard/TransactionHeatMap';
+import ExportButton from '@/components/export/ExportButton';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import type { Transaction } from '@/components/dashboard/TransactionList';
@@ -98,6 +99,16 @@ const TransactionsPage: React.FC = () => {
   return (
     <MainLayout title="Minhas Transações">
       <div className="max-w-md mx-auto">
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-lg font-semibold">Filtrar transações</h2>
+          <ExportButton 
+            transactions={dateFilteredTransactions}
+            dateRange={dateRange}
+            userName={user?.nome}
+            disabled={isLoading || dateFilteredTransactions.length === 0}
+          />
+        </div>
+        
         <DateRangeFilter onRangeChange={handleDateRangeChange} />
         
         {/* Display summary statistics */}
