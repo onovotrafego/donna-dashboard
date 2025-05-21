@@ -1,11 +1,12 @@
 
 import { supabase, debugSupabaseQuery } from '@/integrations/supabase/client';
 import type { UserRecord } from './types';
+import { PostgrestSingleResponse } from '@supabase/supabase-js';
 
 // Executa consulta exata na tabela de clientes
 export const executeQuery = async (field: string, value: string, operationName: string): Promise<UserRecord | null> => {
   try {
-    const result = await debugSupabaseQuery(
+    const result: PostgrestSingleResponse<UserRecord> = await debugSupabaseQuery(
       supabase
         .from('donna_clientes')
         .select('*')
@@ -19,7 +20,7 @@ export const executeQuery = async (field: string, value: string, operationName: 
       return null;
     }
     
-    return result.data as UserRecord | null;
+    return result.data;
   } catch (error) {
     console.error(`[AUTH] Exception in executeQuery: ${error}`);
     return null;
@@ -29,7 +30,7 @@ export const executeQuery = async (field: string, value: string, operationName: 
 // Executa consulta case-insensitive na tabela de clientes
 export const executeInsensitiveQuery = async (field: string, value: string, operationName: string): Promise<UserRecord | null> => {
   try {
-    const result = await debugSupabaseQuery(
+    const result: PostgrestSingleResponse<UserRecord> = await debugSupabaseQuery(
       supabase
         .from('donna_clientes')
         .select('*')
@@ -43,7 +44,7 @@ export const executeInsensitiveQuery = async (field: string, value: string, oper
       return null;
     }
     
-    return result.data as UserRecord | null;
+    return result.data;
   } catch (error) {
     console.error(`[AUTH] Exception in executeInsensitiveQuery: ${error}`);
     return null;
