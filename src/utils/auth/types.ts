@@ -10,6 +10,5 @@ export type UserRecord = {
   data_expiracao: string | null;
   created_at: string | null;
   completou_cadastro: boolean | null;
-  // Remove the recursive index signature that causes the TS2589 error
-  // and explicitly define any additional properties if needed
+  // Any additional properties need to be explicitly defined here
 };

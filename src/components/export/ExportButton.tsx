@@ -3,7 +3,7 @@ import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Download } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { generateTransactionReport } from '@/utils/export/pdfExport';
+import { generateTransactionReport } from '@/utils/export/pdf'; // Updated import path
 import type { Transaction } from '@/components/dashboard/TransactionList';
 
 interface ExportButtonProps {
