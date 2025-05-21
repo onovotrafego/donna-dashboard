@@ -6,6 +6,8 @@ import { PostgrestResponse } from '@supabase/supabase-js';
 // Executa consulta exata na tabela de clientes
 export const executeQuery = async (field: string, value: string, operationName: string): Promise<UserRecord | null> => {
   try {
+    console.log(`[AUTH] Executando consulta em donna_clientes: ${field}=${value} (${operationName})`);
+    
     const result = await debugSupabaseQuery(
       supabase
         .from('donna_clientes')
@@ -20,6 +22,11 @@ export const executeQuery = async (field: string, value: string, operationName: 
       return null;
     }
     
+    // Se encontramos o cliente, registramos o ID para depuração
+    if (result.data) {
+      console.log(`[AUTH] Cliente encontrado com ID: ${result.data.id}`);
+    }
+    
     return result.data;
   } catch (error) {
     console.error(`[AUTH] Exception in executeQuery: ${error}`);
@@ -30,6 +37,8 @@ export const executeQuery = async (field: string, value: string, operationName: 
 // Executa consulta case-insensitive na tabela de clientes
 export const executeInsensitiveQuery = async (field: string, value: string, operationName: string): Promise<UserRecord | null> => {
   try {
+    console.log(`[AUTH] Executando consulta insensitiva em donna_clientes: ${field}~${value} (${operationName})`);
+    
     const result = await debugSupabaseQuery(
       supabase
         .from('donna_clientes')
@@ -42,6 +51,11 @@ export const executeInsensitiveQuery = async (field: string, value: string, oper
     if (result.error) {
       console.error(`[AUTH] Error executing insensitive query: ${result.error.message}`);
       return null;
+    }
+    
+    // Se encontramos o cliente, registramos o ID para depuração
+    if (result.data) {
+      console.log(`[AUTH] Cliente encontrado com ID: ${result.data.id}`);
     }
     
     return result.data;
@@ -78,10 +92,27 @@ export const findUserByEmail = (users: Array<UserRecord>, targetEmail: string): 
       console.log(`[AUTH] Comparing DB email: "${userEmail}" with input: "${trimmedTargetEmail}"`);
       
       if (userEmail === trimmedTargetEmail) {
+        console.log(`[AUTH] Email match found for cliente ID: ${user.id}`);
         return user;
       }
     }
   }
   
   return null;
+};
+
+// Nova função para ajudar a depurar e garantir consistência de IDs
+export const verifyClientIds = (): void => {
+  const localStorageUserId = localStorage.getItem('user_id');
+  console.log(`[AUTH] Verificando IDs de cliente - localStorage user_id: ${localStorageUserId}`);
+  
+  // Verificar a sessão do Supabase
+  supabase.auth.getSession().then(({ data }) => {
+    console.log(`[AUTH] Supabase auth user ID: ${data.session?.user?.id || 'none'}`);
+    
+    if (localStorageUserId && data.session?.user?.id && localStorageUserId !== data.session.user.id) {
+      console.warn(`[AUTH] ATENÇÃO: ID do localStorage (${localStorageUserId}) é diferente do ID Supabase (${data.session.user.id})`);
+      console.warn('[AUTH] Isso pode causar problemas nas consultas. Use client_id para tabelas relacionadas ao cliente.');
+    }
+  });
 };

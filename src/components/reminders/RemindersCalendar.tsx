@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { format, isSameDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Calendar } from '@/components/ui/calendar';
@@ -17,6 +17,18 @@ const RemindersCalendar: React.FC<RemindersCalendarProps> = ({
   onSelectDate 
 }) => {
   console.log('RemindersCalendar - Rendering with reminders count:', reminders.length);
+  
+  // Exibe os IDs dos reminders para debug
+  useEffect(() => {
+    if (reminders.length > 0) {
+      console.log('RemindersCalendar - Exemplo de reminder carregado:', {
+        id: reminders[0].id,
+        client_id: reminders[0].client_id,
+        data: reminders[0].lembrete_data,
+        mensagem: reminders[0].mensagem_lembrete.substring(0, 30) + '...'
+      });
+    }
+  }, [reminders]);
   
   // Agrupa lembretes por data (formato YYYY-MM-DD)
   const remindersByDate: Record<string, Reminder[]> = {};
@@ -41,7 +53,7 @@ const RemindersCalendar: React.FC<RemindersCalendarProps> = ({
     }
   });
   
-  console.log('RemindersCalendar - Grouped reminders:', remindersByDate);
+  console.log('RemindersCalendar - Datas com lembretes:', Object.keys(remindersByDate).length);
   
   // Encontra o dia com mais lembretes para escala visual
   const maxRemindersCount = Math.max(
