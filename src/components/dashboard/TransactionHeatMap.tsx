@@ -58,8 +58,8 @@ const TransactionHeatMap: React.FC<TransactionHeatMapProps> = ({
   );
   
   // Função para renderizar o conteúdo personalizado de cada dia
-  const renderDayContent = (day: Date) => {
-    const dateKey = format(day, 'yyyy-MM-dd');
+  const renderDayContent = (date: Date) => {
+    const dateKey = format(date, 'yyyy-MM-dd');
     const dayData = dailySpending[dateKey];
     
     if (!dayData || dayData.totalSpent === 0) return null;
@@ -85,14 +85,6 @@ const TransactionHeatMap: React.FC<TransactionHeatMapProps> = ({
       </div>
     );
   };
-  
-  // Componente personalizado para o conteúdo do dia
-  const DayContent = ({ day }: { day: Date }) => (
-    <>
-      {day.getDate()}
-      {renderDayContent(day)}
-    </>
-  );
 
   return (
     <Card className="p-1 mb-4">
@@ -105,7 +97,12 @@ const TransactionHeatMap: React.FC<TransactionHeatMapProps> = ({
         locale={ptBR}
         showOutsideDays={true}
         components={{
-          DayContent
+          DayContent: (props) => (
+            <>
+              {props.date.getDate()}
+              {renderDayContent(props.date)}
+            </>
+          )
         }}
         className="rounded-md border"
       />

@@ -13,6 +13,11 @@ export const executeQuery = async (field: string, value: string, operationName: 
     operationName
   );
   
+  if (result.error) {
+    console.error(`[AUTH] Error executing query: ${result.error.message}`);
+    return null;
+  }
+  
   return result.data as UserRecord | null;
 };
 
@@ -26,6 +31,11 @@ export const executeInsensitiveQuery = async (field: string, value: string, oper
       .maybeSingle(),
     operationName
   );
+  
+  if (result.error) {
+    console.error(`[AUTH] Error executing insensitive query: ${result.error.message}`);
+    return null;
+  }
   
   return result.data as UserRecord | null;
 };

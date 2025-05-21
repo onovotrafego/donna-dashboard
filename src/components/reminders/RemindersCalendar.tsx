@@ -33,8 +33,8 @@ const RemindersCalendar: React.FC<RemindersCalendarProps> = ({
   );
   
   // Renderiza um indicador visual para cada dia com lembretes
-  const renderDayContent = (day: Date) => {
-    const dateKey = format(day, 'yyyy-MM-dd');
+  const renderDayContent = (date: Date) => {
+    const dateKey = format(date, 'yyyy-MM-dd');
     const dayReminders = remindersByDate[dateKey] || [];
     
     if (dayReminders.length === 0) return null;
@@ -75,12 +75,12 @@ const RemindersCalendar: React.FC<RemindersCalendarProps> = ({
         locale={ptBR}
         showOutsideDays={true}
         components={{
-          DayContent: ({ day }) => (
+          DayContent: (props) => (
             <>
-              {day.getDate()}
-              {renderDayContent(day)}
+              {props.date.getDate()}
+              {renderDayContent(props.date)}
             </>
-          ),
+          )
         }}
         className="rounded-md border"
       />
