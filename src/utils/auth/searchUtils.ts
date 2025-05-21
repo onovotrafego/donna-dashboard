@@ -20,6 +20,7 @@ export const verifyClientIds = () => {
 
 // Helper function to safely convert database results to UserRecord
 const safeUserRecord = (data: Record<string, any>): UserRecord => {
+  // Create a UserRecord without using a recursive type
   return {
     id: data.id,
     email: data.email || null,

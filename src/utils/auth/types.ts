@@ -10,7 +10,6 @@ export type UserRecord = {
   data_expiracao: string | null;
   created_at: string | null;
   completou_cadastro: boolean | null;
-  // Instead of an index signature that allows any property, we'll explicitly list common additional properties
-  // This prevents the excessive type instantiation depth error
-  [key: string]: string | boolean | null;
+  // Remove the recursive index signature that causes the TS2589 error
+  // and explicitly define any additional properties if needed
 };
