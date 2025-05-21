@@ -3,3 +3,5 @@
 export * from './authVerification';
 export * from './authPassword';
 export * from './authSession';
+export * as userSearch from './userSearch';
+export * as remotejidFormatter from './remotejidFormatter';
