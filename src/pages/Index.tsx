@@ -9,6 +9,7 @@ import { supabase, debugSupabaseQuery } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import type { Transaction } from '@/components/dashboard/TransactionList';
 import { useToast } from '@/hooks/use-toast';
+import { parseBrazilianCurrency } from '@/utils/currency';
 
 const Index: React.FC = () => {
   const { user } = useAuth();
@@ -62,7 +63,7 @@ const Index: React.FC = () => {
           id: item.id,
           title: item.descricao || 'Sem descrição',
           category: item.classificacao || 'Não classificado',
-          amount: parseFloat(item.valor) || 0,
+          amount: parseBrazilianCurrency(item.valor) || 0,
           date: item.created_at,
           type: transactionType
         };

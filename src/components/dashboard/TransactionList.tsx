@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { ArrowDownCircle, ArrowUpCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
+import { parseBrazilianCurrency, formatCurrency } from '@/utils/currency';
 
 export interface Transaction {
   id: string;
@@ -118,10 +119,7 @@ const TransactionList: React.FC<TransactionListProps> = ({
               
               <p className={`font-medium ${transaction.type === 'income' ? 'text-finance-secondary' : 'text-finance-alert'}`}>
                 {transaction.type === 'income' ? '+' : '-'}
-                {new Intl.NumberFormat('pt-BR', { 
-                  style: 'currency', 
-                  currency: 'BRL' 
-                }).format(transaction.amount)}
+                {formatCurrency(transaction.amount)}
               </p>
             </div>
           ))

@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { TrendingUp, TrendingDown } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
+import { parseBrazilianCurrency } from '@/utils/currency';
 
 interface BalanceCardProps {
   balance?: number;
@@ -43,24 +44,24 @@ const BalanceCard: React.FC<BalanceCardProps> = ({
         
         if (incomeError) throw incomeError;
         
-        // Get outgoing transactions (SAÍDA)
+        // Get outgoing transactions (DESPESA or SAÍDA)
         const { data: expenses, error: expenseError } = await supabase
           .from('donna_lancamentos')
           .select('valor')
           .eq('client_id', user.id)
-          .eq('natureza', 'SAÍDA');
+          .or('natureza.eq.DESPESA,natureza.eq.SAÍDA');
         
         if (expenseError) throw expenseError;
         
         // Calculate total income
         const totalIncome = incomes.reduce((sum, item) => {
-          const value = parseFloat(item.valor) || 0;
+          const value = parseBrazilianCurrency(item.valor);
           return sum + value;
         }, 0);
         
         // Calculate total expenses
         const totalExpenses = expenses.reduce((sum, item) => {
-          const value = parseFloat(item.valor) || 0;
+          const value = parseBrazilianCurrency(item.valor);
           return sum + value;
         }, 0);
         

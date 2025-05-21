@@ -1,6 +1,9 @@
 
-import { remotejidFormatter, userSearch } from '.';
-import { supabase, debugSupabaseQuery } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/client';
+import * as exactSearch from './exactSearch';
+import * as advancedSearch from './advancedSearch';
+import * as debugSearch from './debugSearch';
+import * as remotejidFormatter from './remotejidFormatter';
 
 // Improved function to check if a user exists by remotejid
 export const checkUserByRemoteJid = async (remotejid: string) => {
@@ -20,14 +23,14 @@ export const checkUserByRemoteJid = async (remotejid: string) => {
   try {
     // Step 1: Try exact match with original input
     console.log("[AUTH] Trying exact match for original remotejid:", trimmedRemotejid);
-    let userData = await userSearch.searchUserByExactRemoteJid(trimmedRemotejid);
+    let userData = await exactSearch.searchUserByExactRemoteJid(trimmedRemotejid);
     
     if (userData) {
       return userData;
     }
     
     // Step 2: Try exact match with normalized input (with + prefix)
-    userData = await userSearch.searchUserByAlternativeFormat(trimmedRemotejid, normalizedRemotejid);
+    userData = await exactSearch.searchUserByAlternativeFormat(trimmedRemotejid, normalizedRemotejid);
     
     if (userData) {
       return userData;
@@ -38,7 +41,7 @@ export const checkUserByRemoteJid = async (remotejid: string) => {
       const withoutPlusRemotejid = remotejidFormatter.removeRemotejidPlus(trimmedRemotejid);
       console.log("[AUTH] Trying without + prefix:", withoutPlusRemotejid);
       
-      userData = await userSearch.searchUserByAlternativeFormat(trimmedRemotejid, withoutPlusRemotejid);
+      userData = await exactSearch.searchUserByAlternativeFormat(trimmedRemotejid, withoutPlusRemotejid);
       
       if (userData) {
         return userData;
@@ -51,7 +54,7 @@ export const checkUserByRemoteJid = async (remotejid: string) => {
     // Create an array of possible formats to search
     const searchFormats = remotejidFormatter.generateSearchFormats(trimmedRemotejid);
     
-    userData = await userSearch.searchUserByLikeRemoteJid(searchFormats);
+    userData = await advancedSearch.searchUserByLikeRemoteJid(searchFormats);
     
     if (userData) {
       return userData;
@@ -63,7 +66,7 @@ export const checkUserByRemoteJid = async (remotejid: string) => {
     console.log("[AUTH] Normalized: ", normalizedRemotejid);
     
     // Debug: Log all users and their remotejids for debugging
-    await userSearch.getDebugUserList();
+    await debugSearch.getDebugUserList();
     
     throw new Error('Usuário não encontrado');
   } catch (error) {
@@ -87,21 +90,21 @@ export const checkUserByEmail = async (email: string) => {
   
   try {
     // Step 1: Try exact match (most efficient)
-    let userData = await userSearch.searchUserByExactEmail(trimmedEmail);
+    let userData = await exactSearch.searchUserByExactEmail(trimmedEmail);
     
     if (userData) {
       return userData;
     }
     
     // Step 2: If no exact match, try case-insensitive search
-    userData = await userSearch.searchUserByInsensitiveEmail(trimmedEmail);
+    userData = await exactSearch.searchUserByInsensitiveEmail(trimmedEmail);
     
     if (userData) {
       return userData;
     }
     
     // Step 3: As a last resort, get all users and try to match manually
-    userData = await userSearch.searchUsersByManualEmailComparison(trimmedEmail);
+    userData = await advancedSearch.searchUsersByManualEmailComparison(trimmedEmail);
     
     if (userData) {
       return userData;
