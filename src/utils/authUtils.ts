@@ -1,88 +1,126 @@
-
 import { supabase, setAuthToken, debugSupabaseQuery } from '@/integrations/supabase/client';
 import { v4 as uuidv4 } from 'uuid';
 import * as bcrypt from 'bcryptjs-react';
 
-// Simplified function to check if a user exists by remotejid
+// Improved function to check if a user exists by remotejid
 export const checkUserByRemoteJid = async (remotejid: string) => {
   if (!remotejid || remotejid.trim() === '') {
     console.error("[AUTH] Empty remotejid provided");
     throw new Error('ID de usuário não fornecido');
   }
   
+  // Normalize remotejid by trimming and handling the "+" prefix consistently
   const trimmedRemotejid = remotejid.trim();
+  const normalizedRemotejid = trimmedRemotejid.startsWith('+') 
+    ? trimmedRemotejid 
+    : `+${trimmedRemotejid}`;
+  
   console.log("[AUTH] Looking for user with remotejid:", trimmedRemotejid);
+  console.log("[AUTH] Normalized remotejid for search:", normalizedRemotejid);
   
   try {
-    // Step 1: Try exact match (most efficient)
-    console.log("[AUTH] Trying exact match for remotejid:", trimmedRemotejid);
+    // Step 1: Try exact match with original input
+    console.log("[AUTH] Trying exact match for original remotejid:", trimmedRemotejid);
     const exactMatchResult = await debugSupabaseQuery(
       supabase
         .from('donna_clientes')
         .select('*')
         .eq('remotejid', trimmedRemotejid)
         .maybeSingle(),
-      'checkUserByRemoteJid - exact match'
+      'checkUserByRemoteJid - exact match with original'
     );
     
-    if (exactMatchResult.error) {
-      console.error("[AUTH] Error in exact match query:", exactMatchResult.error);
-      throw new Error(`Erro ao consultar banco de dados: ${exactMatchResult.error.message}`);
-    }
-    
-    // If we found an exact match, return it
     if (exactMatchResult.data) {
-      console.log("[AUTH] Found user with exact match:", exactMatchResult.data.id);
+      console.log("[AUTH] Found user with exact match (original):", exactMatchResult.data.id);
       return exactMatchResult.data;
     }
     
-    console.log("[AUTH] No exact match found, trying case-insensitive search");
-    
-    // Step 2: If no exact match, try case-insensitive search
-    const caseInsensitiveResult = await debugSupabaseQuery(
+    // Step 2: Try exact match with normalized input (with + prefix)
+    console.log("[AUTH] Trying exact match for normalized remotejid:", normalizedRemotejid);
+    const normalizedMatchResult = await debugSupabaseQuery(
       supabase
         .from('donna_clientes')
         .select('*')
-        .ilike('remotejid', trimmedRemotejid)
+        .eq('remotejid', normalizedRemotejid)
         .maybeSingle(),
-      'checkUserByRemoteJid - case insensitive'
+      'checkUserByRemoteJid - exact match with normalized'
     );
     
-    if (caseInsensitiveResult.error) {
-      console.error("[AUTH] Error in case-insensitive query:", caseInsensitiveResult.error);
-      throw new Error(`Erro ao consultar banco de dados: ${caseInsensitiveResult.error.message}`);
+    if (normalizedMatchResult.data) {
+      console.log("[AUTH] Found user with normalized match:", normalizedMatchResult.data.id);
+      return normalizedMatchResult.data;
     }
     
-    // If we found a case-insensitive match, return it
-    if (caseInsensitiveResult.data) {
-      console.log("[AUTH] Found user with case-insensitive match:", caseInsensitiveResult.data.id);
-      return caseInsensitiveResult.data;
+    // Step 3: As a fallback, try without the "+" prefix if the original had one
+    if (trimmedRemotejid.startsWith('+')) {
+      const withoutPlusRemotejid = trimmedRemotejid.substring(1);
+      console.log("[AUTH] Trying without + prefix:", withoutPlusRemotejid);
+      
+      const withoutPlusResult = await debugSupabaseQuery(
+        supabase
+          .from('donna_clientes')
+          .select('*')
+          .eq('remotejid', withoutPlusRemotejid)
+          .maybeSingle(),
+        'checkUserByRemoteJid - without plus'
+      );
+      
+      if (withoutPlusResult.data) {
+        console.log("[AUTH] Found user without + prefix:", withoutPlusResult.data.id);
+        return withoutPlusResult.data;
+      }
     }
     
-    // Step 3: As a last resort, do a broader search with LIKE
-    console.log("[AUTH] No case-insensitive match found, trying LIKE search");
-    const likeResult = await debugSupabaseQuery(
+    // Step 4: As a last resort, try a broader search with LIKE
+    console.log("[AUTH] No exact matches found, trying LIKE search with both formats");
+    
+    // Create an array of possible formats to search
+    const searchFormats = [
+      `%${trimmedRemotejid}%`,
+      trimmedRemotejid.startsWith('+') ? `%${trimmedRemotejid.substring(1)}%` : `%${trimmedRemotejid}%`,
+      !trimmedRemotejid.startsWith('+') ? `%+${trimmedRemotejid}%` : `%${trimmedRemotejid}%`
+    ];
+    
+    // Try each format
+    for (const format of searchFormats) {
+      console.log("[AUTH] Trying LIKE search with format:", format);
+      const likeResult = await debugSupabaseQuery(
+        supabase
+          .from('donna_clientes')
+          .select('*')
+          .ilike('remotejid', format)
+          .limit(1),
+        `checkUserByRemoteJid - LIKE match with ${format}`
+      );
+      
+      if (likeResult.data && likeResult.data.length > 0) {
+        console.log("[AUTH] Found user with LIKE match:", likeResult.data[0].id);
+        console.log("[AUTH] Matched remotejid in DB:", likeResult.data[0].remotejid);
+        return likeResult.data[0];
+      }
+    }
+    
+    // If we get here, no user was found after exhausting all search options
+    console.log("[AUTH] No user found with remotejid after trying all formats");
+    console.log("[AUTH] Requested: ", trimmedRemotejid);
+    console.log("[AUTH] Normalized: ", normalizedRemotejid);
+    
+    // Debug: Log all users and their remotejids for debugging
+    const allUsersResult = await debugSupabaseQuery(
       supabase
         .from('donna_clientes')
-        .select('*')
-        .like('remotejid', `%${trimmedRemotejid}%`)
-        .limit(1),
-      'checkUserByRemoteJid - LIKE match'
+        .select('id, remotejid')
+        .limit(10),
+      'checkUserByRemoteJid - debug list all users'
     );
     
-    if (likeResult.error) {
-      console.error("[AUTH] Error in LIKE query:", likeResult.error);
-      throw new Error(`Erro ao consultar banco de dados: ${likeResult.error.message}`);
+    if (allUsersResult.data && allUsersResult.data.length > 0) {
+      console.log("[AUTH] First 10 users in the database for comparison:");
+      allUsersResult.data.forEach(user => {
+        console.log(`ID: ${user.id}, RemoteJID: ${user.remotejid}`);
+      });
     }
     
-    // If we found a LIKE match, return it
-    if (likeResult.data && likeResult.data.length > 0) {
-      console.log("[AUTH] Found user with LIKE match:", likeResult.data[0].id);
-      return likeResult.data[0];
-    }
-    
-    // If we get here, no user was found
-    console.log("[AUTH] No user found with remotejid:", trimmedRemotejid);
     throw new Error('Usuário não encontrado');
   } catch (error) {
     if (error.message === 'Usuário não encontrado') {

@@ -57,14 +57,19 @@ export const useAuthOperations = () => {
       // Usar verificação diferente com base no método de login
       let userData = null;
       
-      if (method === 'remotejid') {
-        userData = await checkUserByRemoteJid(identifier);
-      } else {
-        userData = await checkUserByEmail(identifier);
-      }
-      
-      if (!userData) {
-        throw new Error(method === 'remotejid' ? "Usuário não encontrado" : "Email não encontrado");
+      try {
+        if (method === 'remotejid') {
+          userData = await checkUserByRemoteJid(identifier);
+        } else {
+          userData = await checkUserByEmail(identifier);
+        }
+        
+        if (!userData) {
+          throw new Error(method === 'remotejid' ? "Usuário não encontrado" : "Email não encontrado");
+        }
+      } catch (error) {
+        console.error('[AUTH] Erro na consulta ao Supabase:', error);
+        throw error;
       }
       
       console.log("[AUTH] Usuário encontrado:", userData);
