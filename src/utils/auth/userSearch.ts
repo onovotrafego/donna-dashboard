@@ -1,47 +1,85 @@
 
 import { supabase, debugSupabaseQuery } from '@/integrations/supabase/client';
 
+/**
+ * Core search functions for exact matches
+ */
+
 // Função para buscar usuário pelo remotejid exato
 export const searchUserByExactRemoteJid = async (remotejid: string) => {
   console.log(`[AUTH] Trying exact match for remotejid: ${remotejid}`);
   
-  const result = await debugSupabaseQuery(
-    supabase
-      .from('donna_clientes')
-      .select('*')
-      .eq('remotejid', remotejid)
-      .maybeSingle(),
+  const result = await executeQuery(
+    'remotejid',
+    remotejid, 
     'searchUserByExactRemoteJid'
   );
   
-  if (result.data) {
-    console.log(`[AUTH] Found user with exact match: ${result.data.id}`);
-    return result.data;
+  if (result) {
+    console.log(`[AUTH] Found user with exact match: ${result.id}`);
   }
   
-  return null;
+  return result;
 };
 
 // Função para buscar usuário por formato alternativo de remotejid
 export const searchUserByAlternativeFormat = async (originalRemotejid: string, formattedRemotejid: string) => {
   console.log(`[AUTH] Trying alternative format match: ${formattedRemotejid}`);
   
-  const result = await debugSupabaseQuery(
-    supabase
-      .from('donna_clientes')
-      .select('*')
-      .eq('remotejid', formattedRemotejid)
-      .maybeSingle(),
+  const result = await executeQuery(
+    'remotejid',
+    formattedRemotejid,
     'searchUserByAlternativeFormat'
   );
   
-  if (result.data) {
-    console.log(`[AUTH] Found user with alternative format: ${result.data.id}`);
-    return result.data;
+  if (result) {
+    console.log(`[AUTH] Found user with alternative format: ${result.id}`);
   }
   
-  return null;
+  return result;
 };
+
+/**
+ * Email search functions
+ */
+
+// Função para buscar usuário pelo email exato
+export const searchUserByExactEmail = async (email: string) => {
+  console.log(`[AUTH] Trying exact match for email: ${email}`);
+  
+  const result = await executeQuery(
+    'email',
+    email,
+    'searchUserByExactEmail'
+  );
+  
+  if (result) {
+    console.log(`[AUTH] Found user with exact email match: ${result.id}`);
+  }
+  
+  return result;
+};
+
+// Função para buscar usuário pelo email com case insensitive
+export const searchUserByInsensitiveEmail = async (email: string) => {
+  console.log(`[AUTH] Trying case-insensitive search for email: ${email}`);
+  
+  const result = await executeInsensitiveQuery(
+    'email',
+    email,
+    'searchUserByInsensitiveEmail'
+  );
+  
+  if (result) {
+    console.log(`[AUTH] Found user with case-insensitive email match: ${result.id}`);
+  }
+  
+  return result;
+};
+
+/**
+ * Advanced search utilities
+ */
 
 // Função para busca aproximada com LIKE
 export const searchUserByLikeRemoteJid = async (searchFormats: string[]) => {
@@ -67,6 +105,36 @@ export const searchUserByLikeRemoteJid = async (searchFormats: string[]) => {
   return null;
 };
 
+// Função para buscar usuários manualmente por email
+export const searchUsersByManualEmailComparison = async (targetEmail: string) => {
+  console.log(`[AUTH] Performing manual email comparison for: ${targetEmail}`);
+  
+  const result = await debugSupabaseQuery(
+    supabase
+      .from('donna_clientes')
+      .select('*')
+      .limit(100),
+    'searchUsersByManualEmailComparison'
+  );
+  
+  if (result.data && result.data.length > 0) {
+    console.log(`[AUTH] Retrieved ${result.data.length} users for manual email comparison`);
+    logAvailableEmails(result.data);
+    
+    const foundUser = findUserByEmail(result.data, targetEmail);
+    if (foundUser) {
+      console.log(`[AUTH] Found user with matching email via manual comparison: ${foundUser.id}`);
+      return foundUser;
+    }
+  }
+  
+  return null;
+};
+
+/**
+ * Debug utilities
+ */
+
 // Função para obter uma lista de usuários para debug
 export const getDebugUserList = async () => {
   const result = await debugSupabaseQuery(
@@ -87,78 +155,56 @@ export const getDebugUserList = async () => {
   return result.data || [];
 };
 
-// Função para buscar usuário pelo email exato
-export const searchUserByExactEmail = async (email: string) => {
-  console.log(`[AUTH] Trying exact match for email: ${email}`);
-  
+/**
+ * Helper functions to reduce code duplication
+ */
+
+// Executa consulta exata na tabela de clientes
+const executeQuery = async (field: string, value: string, operationName: string) => {
   const result = await debugSupabaseQuery(
     supabase
       .from('donna_clientes')
       .select('*')
-      .eq('email', email)
+      .eq(field, value)
       .maybeSingle(),
-    'searchUserByExactEmail'
+    operationName
   );
   
-  if (result.data) {
-    console.log(`[AUTH] Found user with exact email match: ${result.data.id}`);
-    return result.data;
-  }
-  
-  return null;
+  return result.data || null;
 };
 
-// Função para buscar usuário pelo email com case insensitive
-export const searchUserByInsensitiveEmail = async (email: string) => {
-  console.log(`[AUTH] Trying case-insensitive search for email: ${email}`);
-  
+// Executa consulta case-insensitive na tabela de clientes
+const executeInsensitiveQuery = async (field: string, value: string, operationName: string) => {
   const result = await debugSupabaseQuery(
     supabase
       .from('donna_clientes')
       .select('*')
-      .ilike('email', email)
+      .ilike(field, value)
       .maybeSingle(),
-    'searchUserByInsensitiveEmail'
+    operationName
   );
   
-  if (result.data) {
-    console.log(`[AUTH] Found user with case-insensitive email match: ${result.data.id}`);
-    return result.data;
-  }
-  
-  return null;
+  return result.data || null;
 };
 
-// Função para buscar usuários manualmente por email
-export const searchUsersByManualEmailComparison = async (targetEmail: string) => {
-  console.log(`[AUTH] Performing manual email comparison for: ${targetEmail}`);
+// Loga emails disponíveis para debug
+const logAvailableEmails = (users: any[]) => {
+  console.log("[AUTH] Available emails:", 
+    users.map(user => user.email).filter(Boolean).join(', '));
+};
+
+// Compara e encontra usuário por email
+const findUserByEmail = (users: any[], targetEmail: string) => {
+  const trimmedTargetEmail = targetEmail.trim().toLowerCase();
   
-  const result = await debugSupabaseQuery(
-    supabase
-      .from('donna_clientes')
-      .select('*')
-      .limit(100),
-    'searchUsersByManualEmailComparison'
-  );
-  
-  if (result.data && result.data.length > 0) {
-    console.log(`[AUTH] Retrieved ${result.data.length} users for manual email comparison`);
-    
-    // Log available emails for debugging
-    console.log("[AUTH] Available emails:", 
-      result.data.map(user => user.email).filter(Boolean).join(', '));
-    
-    for (const user of result.data) {
-      if (user.email && typeof user.email === 'string') {
-        const userEmail = user.email.trim().toLowerCase();
-        const trimmedTargetEmail = targetEmail.trim().toLowerCase();
-        
-        console.log(`[AUTH] Comparing DB email: "${userEmail}" with input: "${trimmedTargetEmail}"`);
-        
-        if (userEmail === trimmedTargetEmail) {
-          console.log(`[AUTH] Found user with matching email via manual comparison: ${user.id}`);
-          return user;
-        }
+  for (const user of users) {
+    if (user.email && typeof user.email === 'string') {
+      const userEmail = user.email.trim().toLowerCase();
+      
+      console.log(`[AUTH] Comparing DB email: "${userEmail}" with input: "${trimmedTargetEmail}"`);
+      
+      if (userEmail === trimmedTargetEmail) {
+        return user;
       }
     }
   }
