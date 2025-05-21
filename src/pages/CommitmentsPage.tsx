@@ -12,14 +12,22 @@ import ReminderCard from '@/components/reminders/ReminderCard';
 import { Card } from '@/components/ui/card';
 import { Loader2 } from 'lucide-react';
 import type { Reminder } from '@/types/reminder';
+import { useToast } from '@/hooks/use-toast';
 
 const CommitmentsPage: React.FC = () => {
   const { user } = useAuth();
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
+  const { toast } = useToast();
   
-  // Logs for debugging
+  // Enhanced logging for debugging
   useEffect(() => {
-    console.log('CommitmentsPage - Current user:', user);
+    console.log('CommitmentsPage - Auth context user:', user);
+    console.log('CommitmentsPage - Local storage user ID:', localStorage.getItem('user_id'));
+    
+    // Verify the Supabase auth session
+    supabase.auth.getSession().then(({ data }) => {
+      console.log('CommitmentsPage - Supabase session user:', data.session?.user);
+    });
   }, [user]);
   
   // Buscar os lembretes do usuário
@@ -27,40 +35,63 @@ const CommitmentsPage: React.FC = () => {
     queryKey: ['reminders', user?.id],
     queryFn: async () => {
       if (!user?.id) {
-        console.log('CommitmentsPage - No user ID available');
+        console.log('CommitmentsPage - No user ID available, cannot fetch reminders');
         return [];
       }
       
-      console.log('CommitmentsPage - Fetching reminders for user:', user.id);
+      console.log('CommitmentsPage - Fetching reminders for user ID:', user.id);
       
-      const { data, error } = await supabase
-        .from('donna_lembretes')
-        .select('*')
-        .eq('client_id', user.id);
+      try {
+        const { data, error } = await supabase
+          .from('donna_lembretes')
+          .select('*')
+          .eq('client_id', user.id);
+          
+        if (error) {
+          console.error('CommitmentsPage - Error fetching reminders:', error);
+          toast({
+            title: "Erro ao carregar compromissos",
+            description: "Não foi possível carregar seus compromissos. Tente novamente.",
+            variant: "destructive"
+          });
+          throw error;
+        }
         
-      if (error) {
-        console.error('CommitmentsPage - Error fetching reminders:', error);
-        throw error;
+        console.log('CommitmentsPage - Reminders fetched successfully:', data?.length || 0);
+        console.log('CommitmentsPage - Raw reminder data:', data);
+        return data as Reminder[];
+      } catch (e) {
+        console.error('CommitmentsPage - Exception during fetch:', e);
+        throw e;
       }
-      
-      console.log('CommitmentsPage - Reminders fetched:', data?.length || 0);
-      return data as Reminder[];
     },
-    enabled: !!user?.id
+    enabled: !!user?.id,
+    retry: 1
   });
   
   // Filtra os lembretes pela data selecionada
   const selectedDateReminders = selectedDate 
     ? reminders.filter(reminder => {
         const reminderDate = new Date(reminder.lembrete_data);
-        return isSameDay(reminderDate, selectedDate);
+        const result = isSameDay(reminderDate, selectedDate);
+        
+        // Log for debugging filtered reminders
+        console.log(`CommitmentsPage - Checking reminder date: ${reminder.lembrete_data} against selected: ${selectedDate.toISOString()} - match: ${result}`);
+        
+        return result;
       })
     : [];
   
+  useEffect(() => {
+    if (selectedDate) {
+      console.log('CommitmentsPage - Selected date reminders:', selectedDateReminders);
+    }
+  }, [selectedDate, selectedDateReminders]);
+  
   // Manipula a seleção de data
   const handleSelectDate = (date: Date | undefined) => {
-    setSelectedDate(date);
     console.log('CommitmentsPage - Date selected:', date);
+    setSelectedDate(date);
   };
 
   // Renderiza o conteúdo da página

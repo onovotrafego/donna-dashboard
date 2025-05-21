@@ -1,6 +1,6 @@
 
-import React, { useState } from 'react';
-import { format, isSameDay, isSameMonth } from 'date-fns';
+import React from 'react';
+import { format, isSameDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Calendar } from '@/components/ui/calendar';
 import type { Reminder } from '@/types/reminder';
@@ -16,17 +16,31 @@ const RemindersCalendar: React.FC<RemindersCalendarProps> = ({
   selectedDate,
   onSelectDate 
 }) => {
-  // Agrupa lembretes por data (formato YYYY-MM-DD)
-  const remindersByDate = reminders.reduce((acc, reminder) => {
-    const dateKey = format(new Date(reminder.lembrete_data), 'yyyy-MM-dd');
-    if (!acc[dateKey]) {
-      acc[dateKey] = [];
-    }
-    acc[dateKey].push(reminder);
-    return acc;
-  }, {} as Record<string, Reminder[]>);
+  console.log('RemindersCalendar - Rendering with reminders count:', reminders.length);
   
-  console.log('RemindersCalendar - Total reminders:', reminders.length);
+  // Agrupa lembretes por data (formato YYYY-MM-DD)
+  const remindersByDate: Record<string, Reminder[]> = {};
+  
+  reminders.forEach(reminder => {
+    try {
+      const reminderDate = new Date(reminder.lembrete_data);
+      if (isNaN(reminderDate.getTime())) {
+        console.warn('RemindersCalendar - Invalid date in reminder:', reminder);
+        return;
+      }
+      
+      const dateKey = format(reminderDate, 'yyyy-MM-dd');
+      
+      if (!remindersByDate[dateKey]) {
+        remindersByDate[dateKey] = [];
+      }
+      remindersByDate[dateKey].push(reminder);
+      
+    } catch (error) {
+      console.error('RemindersCalendar - Error processing reminder:', error, reminder);
+    }
+  });
+  
   console.log('RemindersCalendar - Grouped reminders:', remindersByDate);
   
   // Encontra o dia com mais lembretes para escala visual
@@ -63,7 +77,7 @@ const RemindersCalendar: React.FC<RemindersCalendarProps> = ({
                     
                     {/* Indicador adicional para lembretes com valor */}
                     {dayReminders.some(reminder => reminder.valor) && (
-                      <div className="w-2 h-2 rounded-full bg-finance-alert" style={{ opacity: 0.7 }} />
+                      <div className="w-2 h-2 rounded-full bg-rose-500" style={{ opacity: 0.7 }} />
                     )}
                   </div>
                 )}
