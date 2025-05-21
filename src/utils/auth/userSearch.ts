@@ -1,12 +1,20 @@
 
 import { supabase, debugSupabaseQuery } from '@/integrations/supabase/client';
 
+// Define a type for the user object to prevent excessive type instantiation
+type UserRecord = {
+  id: string;
+  email?: string | null;
+  remotejid?: string;
+  [key: string]: any; // Allow for other properties that may be present
+};
+
 /**
  * Core search functions for exact matches
  */
 
 // Função para buscar usuário pelo remotejid exato
-export const searchUserByExactRemoteJid = async (remotejid: string) => {
+export const searchUserByExactRemoteJid = async (remotejid: string): Promise<UserRecord | null> => {
   console.log(`[AUTH] Trying exact match for remotejid: ${remotejid}`);
   
   const result = await executeQuery(
@@ -23,7 +31,7 @@ export const searchUserByExactRemoteJid = async (remotejid: string) => {
 };
 
 // Função para buscar usuário por formato alternativo de remotejid
-export const searchUserByAlternativeFormat = async (originalRemotejid: string, formattedRemotejid: string) => {
+export const searchUserByAlternativeFormat = async (originalRemotejid: string, formattedRemotejid: string): Promise<UserRecord | null> => {
   console.log(`[AUTH] Trying alternative format match: ${formattedRemotejid}`);
   
   const result = await executeQuery(
@@ -44,7 +52,7 @@ export const searchUserByAlternativeFormat = async (originalRemotejid: string, f
  */
 
 // Função para buscar usuário pelo email exato
-export const searchUserByExactEmail = async (email: string) => {
+export const searchUserByExactEmail = async (email: string): Promise<UserRecord | null> => {
   console.log(`[AUTH] Trying exact match for email: ${email}`);
   
   const result = await executeQuery(
@@ -61,7 +69,7 @@ export const searchUserByExactEmail = async (email: string) => {
 };
 
 // Função para buscar usuário pelo email com case insensitive
-export const searchUserByInsensitiveEmail = async (email: string) => {
+export const searchUserByInsensitiveEmail = async (email: string): Promise<UserRecord | null> => {
   console.log(`[AUTH] Trying case-insensitive search for email: ${email}`);
   
   const result = await executeInsensitiveQuery(
@@ -82,7 +90,7 @@ export const searchUserByInsensitiveEmail = async (email: string) => {
  */
 
 // Função para busca aproximada com LIKE
-export const searchUserByLikeRemoteJid = async (searchFormats: string[]) => {
+export const searchUserByLikeRemoteJid = async (searchFormats: string[]): Promise<UserRecord | null> => {
   for (const format of searchFormats) {
     console.log(`[AUTH] Trying LIKE search with format: ${format}`);
     
@@ -98,7 +106,7 @@ export const searchUserByLikeRemoteJid = async (searchFormats: string[]) => {
     if (result.data && result.data.length > 0) {
       console.log(`[AUTH] Found user with LIKE match: ${result.data[0].id}`);
       console.log(`[AUTH] Matched remotejid in DB: ${result.data[0].remotejid}`);
-      return result.data[0];
+      return result.data[0] as UserRecord;
     }
   }
   
@@ -106,7 +114,7 @@ export const searchUserByLikeRemoteJid = async (searchFormats: string[]) => {
 };
 
 // Função para buscar usuários manualmente por email
-export const searchUsersByManualEmailComparison = async (targetEmail: string) => {
+export const searchUsersByManualEmailComparison = async (targetEmail: string): Promise<UserRecord | null> => {
   console.log(`[AUTH] Performing manual email comparison for: ${targetEmail}`);
   
   const result = await debugSupabaseQuery(
@@ -121,7 +129,7 @@ export const searchUsersByManualEmailComparison = async (targetEmail: string) =>
     console.log(`[AUTH] Retrieved ${result.data.length} users for manual email comparison`);
     logAvailableEmails(result.data);
     
-    const foundUser = findUserByEmail(result.data, targetEmail);
+    const foundUser = findUserByEmail(result.data as UserRecord[], targetEmail);
     if (foundUser) {
       console.log(`[AUTH] Found user with matching email via manual comparison: ${foundUser.id}`);
       return foundUser;
@@ -136,7 +144,7 @@ export const searchUsersByManualEmailComparison = async (targetEmail: string) =>
  */
 
 // Função para obter uma lista de usuários para debug
-export const getDebugUserList = async () => {
+export const getDebugUserList = async (): Promise<UserRecord[]> => {
   const result = await debugSupabaseQuery(
     supabase
       .from('donna_clientes')
@@ -152,7 +160,7 @@ export const getDebugUserList = async () => {
     });
   }
   
-  return result.data || [];
+  return (result.data as UserRecord[]) || [];
 };
 
 /**
@@ -160,7 +168,7 @@ export const getDebugUserList = async () => {
  */
 
 // Executa consulta exata na tabela de clientes
-const executeQuery = async (field: string, value: string, operationName: string) => {
+const executeQuery = async (field: string, value: string, operationName: string): Promise<UserRecord | null> => {
   const result = await debugSupabaseQuery(
     supabase
       .from('donna_clientes')
@@ -170,11 +178,11 @@ const executeQuery = async (field: string, value: string, operationName: string)
     operationName
   );
   
-  return result.data || null;
+  return (result.data as UserRecord | null) || null;
 };
 
 // Executa consulta case-insensitive na tabela de clientes
-const executeInsensitiveQuery = async (field: string, value: string, operationName: string) => {
+const executeInsensitiveQuery = async (field: string, value: string, operationName: string): Promise<UserRecord | null> => {
   const result = await debugSupabaseQuery(
     supabase
       .from('donna_clientes')
@@ -184,17 +192,17 @@ const executeInsensitiveQuery = async (field: string, value: string, operationNa
     operationName
   );
   
-  return result.data || null;
+  return (result.data as UserRecord | null) || null;
 };
 
 // Loga emails disponíveis para debug
-const logAvailableEmails = (users: any[]) => {
+const logAvailableEmails = (users: UserRecord[]): void => {
   console.log("[AUTH] Available emails:", 
     users.map(user => user.email).filter(Boolean).join(', '));
 };
 
 // Compara e encontra usuário por email
-const findUserByEmail = (users: any[], targetEmail: string) => {
+const findUserByEmail = (users: UserRecord[], targetEmail: string): UserRecord | null => {
   const trimmedTargetEmail = targetEmail.trim().toLowerCase();
   
   for (const user of users) {
