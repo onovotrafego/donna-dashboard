@@ -32,37 +32,111 @@ export const setSessionData = async (userId: string, userName: string) => {
       const { data: { user: supabaseUser } } = await supabase.auth.getUser();
       
       if (!supabaseUser) {
-        console.log("[AUTH] Usuário não autenticado no Supabase, criando sessão anônima");
-        // Se não estiver autenticado, crie uma sessão anônima com o ID do cliente
+        console.log("[AUTH] Usuário não autenticado no Supabase, criando sessão");
+        
+        // Criar um email baseado no ID do usuário
+        const email = `${userId}@finflow.app`;
+        
+        // Tente fazer login primeiro (caso o usuário já exista)
         const { data, error } = await supabase.auth.signInWithPassword({
-          email: `${userId}@anonymous.user`,
-          password: userId // Usando o ID como senha para autenticação anônima
+          email: email,
+          password: userId // Usando o ID como senha para autenticação
         });
         
         if (error) {
+          console.log("[AUTH] Erro ao fazer login, tentando registrar usuário:", error.message);
+          
           // Se falhar o login, tente registrar o usuário
-          console.log("[AUTH] Tentando registrar usuário anônimo no Supabase");
           const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-            email: `${userId}@anonymous.user`,
+            email: email,
             password: userId,
             options: {
               data: {
                 full_name: userName,
-                client_id: userId
+                client_id: userId,
+                user_role: 'client'
               }
             }
           });
           
           if (signUpError) {
             console.error("[AUTH] Erro ao registrar usuário no Supabase:", signUpError);
+            
+            // Tentar um método alternativo: login anônimo
+            const { data: anonData, error: anonError } = await supabase.auth.signInAnonymously();
+            
+            if (anonError) {
+              console.error("[AUTH] Erro ao fazer login anônimo:", anonError);
+            } else {
+              console.log("[AUTH] Login anônimo bem-sucedido, atualizando metadados");
+              
+              // Atualizar os metadados do usuário anônimo
+              const { error: updateError } = await supabase.auth.updateUser({
+                data: {
+                  full_name: userName,
+                  client_id: userId,
+                  user_role: 'client'
+                }
+              });
+              
+              if (updateError) {
+                console.error("[AUTH] Erro ao atualizar metadados do usuário anônimo:", updateError);
+              } else {
+                console.log("[AUTH] Metadados do usuário anônimo atualizados com sucesso");
+              }
+            }
           } else {
             console.log("[AUTH] Usuário registrado com sucesso no Supabase");
           }
         } else {
-          console.log("[AUTH] Usuário autenticado com sucesso no Supabase");
+          console.log("[AUTH] Usuário autenticado com sucesso no Supabase:", data?.user?.id);
+          
+          // Atualizar os metadados do usuário para garantir que o client_id esteja lá
+          const { error: updateError } = await supabase.auth.updateUser({
+            data: {
+              full_name: userName,
+              client_id: userId,
+              user_role: 'client'
+            }
+          });
+          
+          if (updateError) {
+            console.error("[AUTH] Erro ao atualizar metadados do usuário:", updateError);
+          } else {
+            console.log("[AUTH] Metadados do usuário atualizados com sucesso");
+          }
         }
       } else {
         console.log("[AUTH] Usuário já autenticado no Supabase:", supabaseUser.id);
+        
+        // Verificar se o client_id está nos metadados e atualizar se necessário
+        const userMeta = supabaseUser.user_metadata || {};
+        if (!userMeta.client_id || userMeta.client_id !== userId) {
+          console.log("[AUTH] Atualizando metadados do usuário para incluir client_id");
+          
+          const { error: updateError } = await supabase.auth.updateUser({
+            data: {
+              ...userMeta,
+              full_name: userName,
+              client_id: userId,
+              user_role: 'client'
+            }
+          });
+          
+          if (updateError) {
+            console.error("[AUTH] Erro ao atualizar metadados do usuário:", updateError);
+          } else {
+            console.log("[AUTH] Metadados do usuário atualizados com sucesso");
+            
+            // Recarregar a sessão para garantir que os metadados sejam atualizados
+            const { error: refreshError } = await supabase.auth.refreshSession();
+            if (refreshError) {
+              console.error("[AUTH] Erro ao atualizar sessão:", refreshError);
+            } else {
+              console.log("[AUTH] Sessão atualizada com sucesso");
+            }
+          }
+        }
       }
     } catch (authError) {
       console.error("[AUTH] Erro ao autenticar no Supabase:", authError);

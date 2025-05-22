@@ -2,6 +2,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase, debugSupabaseQuery, getAuthUser } from '@/integrations/supabase/client';
+import { setSessionData } from '@/utils/auth/authSession';
 import type { Reminder } from '@/types/reminder';
 
 /**
@@ -15,7 +16,7 @@ export const useReminders = () => {
   // Recuperar o client_id do localStorage
   const clientId = localStorage.getItem('user_id');
   
-  // Buscar o ID do usuário autenticado no Supabase
+  // Buscar o ID do usuário autenticado no Supabase e seus metadados
   useEffect(() => {
     const fetchSupabaseUser = async () => {
       try {
@@ -23,6 +24,19 @@ export const useReminders = () => {
         if (user?.id) {
           console.log('[REMINDERS] ID do usuário Supabase:', user.id);
           setSupabaseUserId(user.id);
+          
+          // Verificar se há um client_id nos metadados do usuário
+          const userMeta = user.user_metadata || {};
+          if (userMeta.client_id) {
+            console.log('[REMINDERS] client_id encontrado nos metadados:', userMeta.client_id);
+            
+            // Verificar se o client_id dos metadados corresponde ao do localStorage
+            if (clientId && clientId !== userMeta.client_id) {
+              console.warn('[REMINDERS] client_id do localStorage difere do client_id nos metadados');
+            }
+          } else {
+            console.warn('[REMINDERS] Nenhum client_id encontrado nos metadados do usuário');
+          }
         }
       } catch (error) {
         console.error('[REMINDERS] Erro ao buscar usuário Supabase:', error);
@@ -30,7 +44,7 @@ export const useReminders = () => {
     };
     
     fetchSupabaseUser();
-  }, []);
+  }, [clientId]);
   
   // Função de fetch separada para maior clareza
   const fetchReminders = useCallback(async () => {
@@ -43,12 +57,36 @@ export const useReminders = () => {
     console.log('[REMINDERS] Timestamp da requisição:', new Date().toISOString());
     
     try {
-      // Simplificando para usar diretamente o ID fixo que sabemos que funciona
-      console.log('[REMINDERS] Buscando lembretes para client_id:', clientId);
+      // Verificar se o usuário está autenticado no Supabase
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        console.warn('[REMINDERS] Usuário não autenticado no Supabase, tentando autenticar...');
+        
+        // Tentar autenticar o usuário
+        const userName = localStorage.getItem('user_name') || 'Usuário';
+        await setSessionData(clientId, userName);
+        
+        // Verificar novamente se o usuário está autenticado
+        const { data: { user: newUser } } = await supabase.auth.getUser();
+        
+        if (!newUser) {
+          console.error('[REMINDERS] Falha ao autenticar usuário no Supabase');
+          throw new Error('Falha na autenticação do Supabase');
+        }
+        
+        console.log('[REMINDERS] Usuário autenticado com sucesso no Supabase:', newUser.id);
+      } else {
+        console.log('[REMINDERS] Usuário já autenticado no Supabase:', user.id);
+        console.log('[REMINDERS] Metadados do usuário:', user.user_metadata);
+      }
+      
+      // Consulta usando as políticas RLS
+      console.log('[REMINDERS] Buscando lembretes com RLS');
       const query = supabase
         .from('donna_lembretes')
         .select('*')
-        .eq('client_id', clientId);
+        .order('lembrete_data', { ascending: false });
       
       const result = await debugSupabaseQuery(
         query,
