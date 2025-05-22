@@ -7,14 +7,22 @@ import { UserRecord } from './types';
  * Função de diagnóstico para depuração
  */
 export const verifyClientIds = () => {
-  const localStorageId = localStorage.getItem('user_id');
-  console.log('[UTILS] Client ID no localStorage:', localStorageId);
-  
-  // Verificar se o ID existe sem referências circulares
-  if (localStorageId) {
-    console.log('[UTILS] Client ID encontrado no localStorage');
-  } else {
-    console.log('[UTILS] Nenhum client_id encontrado no localStorage');
+  if (typeof window === 'undefined') {
+    console.log('[UTILS] Executando no servidor, localStorage não disponível');
+    return;
+  }
+
+  try {
+    const localStorageId = localStorage.getItem('user_id');
+    console.log('[UTILS] Client ID no localStorage:', localStorageId);
+    
+    if (localStorageId) {
+      console.log('[UTILS] Client ID encontrado no localStorage');
+    } else {
+      console.log('[UTILS] Nenhum client_id encontrado no localStorage');
+    }
+  } catch (error) {
+    console.error('[UTILS] Erro ao acessar localStorage:', error);
   }
 };
 
