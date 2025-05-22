@@ -10,5 +10,5 @@ export type UserRecord = {
   data_expiracao: string | null;
   created_at: string | null;
   completou_cadastro: boolean | null;
-  // Any additional properties need to be explicitly defined here
+  // Removing any additional properties to prevent recursive type definitions
 };

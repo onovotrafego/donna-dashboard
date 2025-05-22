@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import { UserRecord } from './types';
 
@@ -18,7 +19,7 @@ export const verifyClientIds = () => {
 };
 
 // Helper function to safely convert database results to UserRecord
-const safeUserRecord = (data: Record<string, any>): UserRecord => {
+const safeUserRecord = (data: any): UserRecord => {
   return {
     id: data.id,
     email: data.email || null,
