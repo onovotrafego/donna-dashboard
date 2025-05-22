@@ -45,7 +45,9 @@ const RemindersCalendar: React.FC<RemindersCalendarProps> = ({
   
   reminders.forEach(reminder => {
     try {
-      const reminderDate = new Date(reminder.lembrete_data);
+      // Corrigindo o problema de fuso horário ao converter a data
+      const [year, month, day] = reminder.lembrete_data.split('-').map(Number);
+      const reminderDate = new Date(year, month - 1, day);
       if (isNaN(reminderDate.getTime())) {
         console.warn('RemindersCalendar - Invalid date in reminder:', reminder);
         return;
@@ -84,26 +86,50 @@ const RemindersCalendar: React.FC<RemindersCalendarProps> = ({
             const dateKey = format(date, 'yyyy-MM-dd');
             const dayReminders = remindersByDate[dateKey] || [];
             
+            // Determina as classes para o círculo de fundo quando há lembretes
+            const hasReminders = dayReminders.length > 0;
+            const hasValueReminders = dayReminders.some(reminder => reminder.valor);
+            const hasRecurringReminders = dayReminders.some(reminder => reminder.recorrencia);
+            
+            // Determina a cor do círculo de fundo
+            let bgColorClass = '';
+            if (hasValueReminders) {
+              bgColorClass = 'bg-rose-500/10'; // Lembretes com valor têm prioridade visual
+            } else if (hasRecurringReminders) {
+              bgColorClass = 'bg-primary/10';
+            } else if (hasReminders) {
+              bgColorClass = 'bg-secondary/10';
+            }
+            
             return (
-              <>
-                {date.getDate()}
-                {dayReminders.length > 0 && (
-                  <div className="flex gap-1 justify-center mt-1">
-                    {/* Indicador principal baseado na quantidade */}
-                    <div 
-                      className={`w-2 h-2 rounded-full ${dayReminders.some(reminder => reminder.recorrencia) ? 'bg-primary' : 'bg-secondary'}`}
-                      style={{
-                        opacity: 0.3 + ((dayReminders.length / maxRemindersCount) * 0.7) // Varia de 0.3 a 1.0
-                      }}
-                    />
-                    
-                    {/* Indicador adicional para lembretes com valor */}
-                    {dayReminders.some(reminder => reminder.valor) && (
-                      <div className="w-2 h-2 rounded-full bg-rose-500" style={{ opacity: 0.7 }} />
+              <div className="relative flex items-center justify-center">
+                {/* Círculo de fundo para dias com lembretes */}
+                {hasReminders && (
+                  <div 
+                    className={`absolute inset-0 rounded-full ${bgColorClass}`}
+                    style={{
+                      opacity: 0.5 + ((dayReminders.length / maxRemindersCount) * 0.5) // Varia de 0.5 a 1.0
+                    }}
+                  />
+                )}
+                
+                {/* Número do dia */}
+                <span className={`${hasReminders ? 'relative z-10' : ''}`}>
+                  {date.getDate()}
+                </span>
+                
+                {/* Indicadores abaixo do número, mais compactos */}
+                {hasReminders && (
+                  <div className="absolute -bottom-1 left-0 right-0 flex justify-center gap-0.5">
+                    {hasRecurringReminders && (
+                      <div className="w-1 h-1 rounded-full bg-primary" />
+                    )}
+                    {hasValueReminders && (
+                      <div className="w-1 h-1 rounded-full bg-rose-500" />
                     )}
                   </div>
                 )}
-              </>
+              </div>
             );
           }
         }}

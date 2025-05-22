@@ -21,7 +21,9 @@ const SelectedDateReminders: React.FC<SelectedDateRemindersProps> = ({
   
   // Filtra os lembretes pela data selecionada
   const selectedDateReminders = reminders.filter(reminder => {
-    const reminderDate = new Date(reminder.lembrete_data);
+    // Corrigindo o problema de fuso horário ao converter a data
+    const [year, month, day] = reminder.lembrete_data.split('-').map(Number);
+    const reminderDate = new Date(year, month - 1, day);
     return isSameDay(reminderDate, selectedDate);
   });
   

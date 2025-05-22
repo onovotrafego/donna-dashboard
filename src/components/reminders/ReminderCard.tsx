@@ -11,7 +11,10 @@ interface ReminderCardProps {
 }
 
 const ReminderCard: React.FC<ReminderCardProps> = ({ reminder }) => {
-  const reminderDate = new Date(reminder.lembrete_data);
+  // Corrigindo o problema de fuso horário ao converter a data
+  // Formato da data no banco: "YYYY-MM-DD"
+  const [year, month, day] = reminder.lembrete_data.split('-').map(Number);
+  const reminderDate = new Date(year, month - 1, day);
   const formattedDate = format(reminderDate, 'PP', { locale: ptBR });
   
   return (
