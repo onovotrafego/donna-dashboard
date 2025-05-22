@@ -51,19 +51,20 @@ const CommitmentsPage: React.FC = () => {
       }
     };
     
+    // Executar o refetch apenas quando o componente é montado ou a rota muda
     forceRefetch();
     
-    // Configurar um intervalo para refetch automático a cada 30 segundos
+    // Configurar um intervalo para refetch automático a cada 60 segundos (aumentado para reduzir a carga)
     const intervalId = setInterval(() => {
       console.log('[COMMITMENTS] Executando refetch programado');
       refetch();
-    }, 30000);
+    }, 60000); // Aumentado para 60 segundos
     
     return () => {
       clearInterval(intervalId);
       console.log('[COMMITMENTS] Componente desmontado');
     };
-  }, [refetch, location.pathname, dataUpdatedAt]);
+  }, [refetch, location.pathname]); // Removido dataUpdatedAt para evitar loop infinito
   
   // Log current state for debugging
   useEffect(() => {

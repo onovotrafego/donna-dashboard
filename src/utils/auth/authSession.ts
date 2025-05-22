@@ -26,6 +26,49 @@ export const setSessionData = async (userId: string, userName: string) => {
     localStorage.setItem('user_id', userId);
     localStorage.setItem('user_name', userName || 'Usuário');
     
+    // Importante: Autenticar o usuário no Supabase para que as políticas RLS funcionem
+    try {
+      // Primeiro, verifique se o usuário já está autenticado no Supabase
+      const { data: { user: supabaseUser } } = await supabase.auth.getUser();
+      
+      if (!supabaseUser) {
+        console.log("[AUTH] Usuário não autenticado no Supabase, criando sessão anônima");
+        // Se não estiver autenticado, crie uma sessão anônima com o ID do cliente
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email: `${userId}@anonymous.user`,
+          password: userId // Usando o ID como senha para autenticação anônima
+        });
+        
+        if (error) {
+          // Se falhar o login, tente registrar o usuário
+          console.log("[AUTH] Tentando registrar usuário anônimo no Supabase");
+          const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+            email: `${userId}@anonymous.user`,
+            password: userId,
+            options: {
+              data: {
+                full_name: userName,
+                client_id: userId
+              }
+            }
+          });
+          
+          if (signUpError) {
+            console.error("[AUTH] Erro ao registrar usuário no Supabase:", signUpError);
+          } else {
+            console.log("[AUTH] Usuário registrado com sucesso no Supabase");
+          }
+        } else {
+          console.log("[AUTH] Usuário autenticado com sucesso no Supabase");
+        }
+      } else {
+        console.log("[AUTH] Usuário já autenticado no Supabase:", supabaseUser.id);
+      }
+    } catch (authError) {
+      console.error("[AUTH] Erro ao autenticar no Supabase:", authError);
+      // Continuar mesmo se houver erro na autenticação do Supabase
+    }
+    
     console.log("[AUTH] Session data set successfully");
     
     // Notify all components that auth state changed
