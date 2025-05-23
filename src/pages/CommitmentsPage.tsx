@@ -4,7 +4,6 @@ import { useLocation } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
 import { useReminders } from '@/hooks/reminders/useReminders';
 import { verifyClientIds } from '@/utils/auth/searchUtils';
-import { logger } from '@/utils/security/secureLogger';
 
 // Layout Component
 import MainLayout from '@/components/layout/MainLayout';
@@ -34,27 +33,21 @@ const CommitmentsPage: React.FC = () => {
   
   // Debug logs on component mount
   useEffect(() => {
-    logger.debug('Componente de compromissos montado ou atualizado', {
-      tags: ['commitments', 'lifecycle']
-    });
+    console.log('[COMMITMENTS] Componente montado ou atualizado');
+    console.log('[COMMITMENTS] Local storage user ID:', localStorage.getItem('user_id'));
     
     // Verify the client IDs for debugging
     verifyClientIds();
     
     // Force refetch when the component is mounted or the route changes
     const forceRefetch = async () => {
-      logger.debug('Forçando refetch dos lembretes...', {
-        tags: ['commitments', 'data', 'refetch']
-      });
+      console.log('[COMMITMENTS] Forçando refetch dos lembretes...');
       try {
         await refetch();
-        logger.debug('Refetch concluído com sucesso', {
-          tags: ['commitments', 'data', 'refetch'],
-          lastUpdated: dataUpdatedAt ? new Date(dataUpdatedAt).toISOString() : null
-        });
+        console.log('[COMMITMENTS] Refetch concluído com sucesso');
+        console.log('[COMMITMENTS] Última atualização:', new Date(dataUpdatedAt).toLocaleTimeString());
       } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : 'Erro desconhecido durante o refetch';
-        logger.error(`Erro durante o refetch: ${errorMessage}`);
+        console.error('[COMMITMENTS] Erro durante o refetch:', err);
       }
     };
     
@@ -63,41 +56,30 @@ const CommitmentsPage: React.FC = () => {
     
     // Configurar um intervalo para refetch automático a cada 60 segundos (aumentado para reduzir a carga)
     const intervalId = setInterval(() => {
-      logger.debug('Executando refetch programado', {
-        tags: ['commitments', 'data', 'refetch']
-      });
+      console.log('[COMMITMENTS] Executando refetch programado');
       refetch();
     }, 60000); // Aumentado para 60 segundos
     
     return () => {
-      logger.debug('Componente de compromissos desmontado', {
-        tags: ['commitments', 'lifecycle']
-      });
       clearInterval(intervalId);
+      console.log('[COMMITMENTS] Componente desmontado');
     };
   }, [refetch, location.pathname]); // Removido dataUpdatedAt para evitar loop infinito
   
-  // Debug effect to log reminders state changes
+  // Log current state for debugging
   useEffect(() => {
-    if (process.env.NODE_ENV === 'development') {
-      logger.debug('Estado dos lembretes atualizado', {
-        tags: ['commitments', 'data'],
-        count: reminders?.length || 0,
-        isLoading,
-        hasError: !!error,
-        error: error?.message || null
-      });
-    }
-  }, [reminders, isLoading, error]);
+    console.log('[COMMITMENTS] Estado atual dos lembretes:', { 
+      count: reminders.length,
+      isLoading,
+      isRefetching,
+      error: error ? 'Sim' : 'Não',
+      dataUpdatedAt: new Date(dataUpdatedAt).toLocaleTimeString()
+    });
+  }, [reminders, isLoading, isRefetching, error, dataUpdatedAt]);
   
   // Handle date selection
   const handleSelectDate = (date: Date | undefined) => {
-    if (process.env.NODE_ENV === 'development') {
-      logger.debug('Data selecionada no calendário', {
-        tags: ['commitments', 'ui', 'calendar'],
-        selectedDate: date?.toISOString() || null
-      });
-    }
+    console.log('[COMMITMENTS] Data selecionada:', date);
     setSelectedDate(date);
   };
 

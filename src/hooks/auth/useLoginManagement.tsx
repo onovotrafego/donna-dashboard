@@ -5,14 +5,6 @@ import { loginWithPassword } from '@/utils/auth';
 import { setSessionData } from '@/utils/auth/authSession';
 import { supabase, debugSupabaseQuery } from '@/integrations/supabase/client';
 import { queryClient } from '@/App'; // Import queryClient
-import { logger } from '@/utils/security/secureLogger';
-
-// Função para ofuscar IDs sensíveis
-const getObfuscatedId = (id: string | null | undefined): string => {
-  if (!id) return 'unknown';
-  if (id.length <= 8) return '***' + id.slice(-4);
-  return id.slice(0, 4) + '...' + id.slice(-4);
-};
 
 /**
  * Hook para gerenciar login
@@ -24,58 +16,29 @@ export const useLoginManagement = () => {
   const { toast } = useToast();
 
   const preloadRemindersData = async (clientId: string) => {
-    logger.debug('Precarregando dados de lembretes para cliente', {
-      clientId: getObfuscatedId(clientId),
-      tags: ['auth', 'reminders']
-    });
-    
+    console.log('[AUTH] Precarregando dados de lembretes para cliente:', clientId);
     try {
-      // Executar a query e obter o resultado
-      const query = supabase
-        .from('donna_lembretes')
-        .select('*')
-        .eq('client_id', clientId);
-      
-      const queryResult = await query;
-      
-      // Usar o debugSupabaseQuery para registrar a execução
-      await debugSupabaseQuery(
-        Promise.resolve({
-          data: queryResult.data,
-          error: queryResult.error
-        }),
+      const result = await debugSupabaseQuery(
+        supabase
+          .from('donna_lembretes')
+          .select('*')
+          .eq('client_id', clientId),
         'preload-user-reminders'
       );
       
-      if (queryResult.error) {
-        logger.error('Erro ao pré-carregar lembretes', queryResult.error, {
-          clientId: getObfuscatedId(clientId),
-          errorCode: queryResult.error.code,
-          tags: ['auth', 'reminders', 'error']
-        });
+      if (result.error) {
+        console.error('[AUTH] Erro ao pré-carregar lembretes:', result.error);
         return;
       }
       
-      const remindersCount = queryResult.data?.length || 0;
-      logger.debug(`Pré-carregados ${remindersCount} lembretes com sucesso`, {
-        count: remindersCount,
-        clientId: getObfuscatedId(clientId),
-        tags: ['auth', 'reminders']
-      });
+      console.log(`[AUTH] Pré-carregados ${result.data.length} lembretes com sucesso`);
       
       // Armazenar os lembretes no cache do React Query
-      queryClient.setQueryData(['reminders', clientId], queryResult.data);
+      queryClient.setQueryData(['reminders', clientId], result.data);
       queryClient.invalidateQueries({ queryKey: ['reminders'] }); // Marcar como inválido para forçar refetch quando necessário
-      
-      logger.debug('Dados de lembretes armazenados no cache do React Query', {
-        clientId: getObfuscatedId(clientId),
-        tags: ['auth', 'reminders']
-      });
+      console.log('[AUTH] Dados de lembretes armazenados no cache do React Query');
     } catch (error) {
-      logger.error('Exceção ao pré-carregar lembretes', error as Error, {
-        clientId: getObfuscatedId(clientId),
-        tags: ['auth', 'reminders', 'error']
-      });
+      console.error('[AUTH] Exceção ao pré-carregar lembretes:', error);
     }
   };
 
@@ -85,10 +48,7 @@ export const useLoginManagement = () => {
       setLoading(true);
       setAuthError(null);
       
-      logger.debug("Tentando login para usuário", {
-        userId: getObfuscatedId(userId),
-        tags: ['auth', 'login']
-      });
+      console.log("[AUTH] Tentando login para usuário:", userId);
       
       if (!password || password.trim() === '') {
         setAuthError("Por favor, digite sua senha");
@@ -104,10 +64,7 @@ export const useLoginManagement = () => {
       const isPasswordValid = await loginWithPassword(userId, password, passwordHash);
       
       if (!isPasswordValid) {
-        logger.debug("Falha no login: senha inválida", {
-          userId: getObfuscatedId(userId),
-          tags: ['auth', 'login', 'failure']
-        });
+        console.log("[AUTH] Falha no login: senha inválida");
         setAuthError("Senha incorreta. Tente novamente.");
         toast({
           title: "Erro de autenticação",
@@ -123,11 +80,7 @@ export const useLoginManagement = () => {
       // Pré-carregar dados de lembretes após o login bem-sucedido
       await preloadRemindersData(userId);
       
-      logger.debug("Login realizado com sucesso", {
-        userId: getObfuscatedId(userId),
-        userName: userName.substring(0, 1) + '***',
-        tags: ['auth', 'login', 'success']
-      });
+      console.log("[AUTH] Login realizado com sucesso para:", userId);
       
       // Notificar usuário
       toast({
@@ -140,10 +93,7 @@ export const useLoginManagement = () => {
       
       return true;
     } catch (error) {
-      logger.error("Erro durante o login", error as Error, {
-        userId: getObfuscatedId(userId),
-        tags: ['auth', 'login', 'error']
-      });
+      console.error("[AUTH] Erro durante o login:", error);
       
       setAuthError("Ocorreu um erro durante o login. Tente novamente.");
       toast({

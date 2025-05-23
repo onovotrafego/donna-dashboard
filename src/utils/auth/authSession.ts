@@ -2,13 +2,6 @@
 import { supabase } from '@/integrations/supabase/client';
 import { logger } from '@/utils/security/secureLogger';
 
-// Função para ofuscar IDs sensíveis
-const getObfuscatedId = (id: string | null | undefined): string => {
-  if (!id) return 'unknown';
-  if (id.length <= 8) return '***' + id.slice(-4);
-  return id.slice(0, 4) + '...' + id.slice(-4);
-};
-
 // Custom event name for authentication state changes
 export const AUTH_STATE_CHANGE_EVENT = 'auth_state_change';
 
@@ -23,18 +16,11 @@ export const notifyAuthStateChange = () => {
 // Set user session data in browser storage and create auth token
 export const setSessionData = async (userId: string, userName: string) => {
   if (!userId) {
-    const errorMessage = 'Missing userId when setting session data';
-    logger.error(errorMessage, new Error('ID de usuário não fornecido para criar sessão'), {
-      tags: ['auth', 'session', 'error']
-    });
+    console.error("[AUTH] Missing userId when setting session data");
     throw new Error('ID de usuário não fornecido para criar sessão');
   }
   
-  logger.debug("Setting session data for user", {
-    userId: getObfuscatedId(userId),
-    userName: userName.substring(0, 1) + '***',
-    tags: ['auth', 'session']
-  });
+  console.log("[AUTH] Setting session data for user:", userId, userName);
   
   try {
     // Use local storage to store user information regardless of Supabase auth result
@@ -47,9 +33,7 @@ export const setSessionData = async (userId: string, userName: string) => {
       const { data: { user: supabaseUser } } = await supabase.auth.getUser();
       
       if (!supabaseUser) {
-        logger.debug("Usuário não autenticado no Supabase, criando sessão", {
-          tags: ['auth', 'supabase']
-        });
+        console.log("[AUTH] Usuário não autenticado no Supabase, criando sessão");
         
         // Criar um email baseado no ID do usuário
         const email = `${userId}@finflow.app`;
@@ -61,10 +45,7 @@ export const setSessionData = async (userId: string, userName: string) => {
         });
         
         if (error) {
-          logger.debug("Erro ao fazer login, tentando registrar usuário", {
-            errorMessage: error.message,
-            tags: ['auth', 'supabase']
-          });
+          console.log("[AUTH] Erro ao fazer login, tentando registrar usuário:", error.message);
           
           // Se falhar o login, tente registrar o usuário
           const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
@@ -80,22 +61,15 @@ export const setSessionData = async (userId: string, userName: string) => {
           });
           
           if (signUpError) {
-            logger.error("Erro ao registrar usuário no Supabase", signUpError as Error, {
-              userId: getObfuscatedId(userId),
-              tags: ['auth', 'supabase', 'error']
-            });
+            console.error("[AUTH] Erro ao registrar usuário no Supabase:", signUpError);
             
             // Tentar um método alternativo: login anônimo
             const { data: anonData, error: anonError } = await supabase.auth.signInAnonymously();
             
             if (anonError) {
-              logger.error("Erro ao fazer login anônimo", anonError as Error, {
-                tags: ['auth', 'supabase', 'error']
-              });
+              console.error("[AUTH] Erro ao fazer login anônimo:", anonError);
             } else {
-              logger.debug("Login anônimo bem-sucedido, atualizando metadados", {
-                tags: ['auth', 'supabase']
-              });
+              console.log("[AUTH] Login anônimo bem-sucedido, atualizando metadados");
               
               // Atualizar os metadados do usuário anônimo
               const { error: updateError } = await supabase.auth.updateUser({
@@ -107,25 +81,16 @@ export const setSessionData = async (userId: string, userName: string) => {
               });
               
               if (updateError) {
-                logger.error("Erro ao atualizar metadados do usuário anônimo", updateError as Error, {
-                  tags: ['auth', 'supabase', 'error']
-                });
+                console.error("[AUTH] Erro ao atualizar metadados do usuário anônimo:", updateError);
               } else {
-                logger.debug("Metadados do usuário anônimo atualizados com sucesso", {
-                  tags: ['auth', 'supabase']
-                });
+                console.log("[AUTH] Metadados do usuário anônimo atualizados com sucesso");
               }
             }
           } else {
-            logger.debug("Usuário registrado com sucesso no Supabase", {
-              tags: ['auth', 'supabase']
-            });
+            console.log("[AUTH] Usuário registrado com sucesso no Supabase");
           }
         } else {
-          logger.debug("Usuário autenticado com sucesso no Supabase", {
-            userId: getObfuscatedId(data?.user?.id),
-            tags: ['auth', 'supabase']
-          });
+          console.log("[AUTH] Usuário autenticado com sucesso no Supabase:", data?.user?.id);
           
           // Atualizar os metadados do usuário para garantir que o client_id esteja lá
           const { error: updateError } = await supabase.auth.updateUser({
@@ -137,31 +102,18 @@ export const setSessionData = async (userId: string, userName: string) => {
           });
           
           if (updateError) {
-            logger.error("Erro ao atualizar metadados do usuário", updateError as Error, {
-              userId: getObfuscatedId(userId),
-              tags: ['auth', 'supabase', 'error']
-            });
+            console.error("[AUTH] Erro ao atualizar metadados do usuário:", updateError);
           } else {
-            logger.debug("Metadados do usuário atualizados com sucesso", {
-              userId: getObfuscatedId(userId),
-              tags: ['auth', 'supabase']
-            });
+            console.log("[AUTH] Metadados do usuário atualizados com sucesso");
           }
         }
       } else {
-        logger.debug("Usuário já autenticado no Supabase", {
-          userId: getObfuscatedId(supabaseUser.id),
-          tags: ['auth', 'supabase']
-        });
+        console.log("[AUTH] Usuário já autenticado no Supabase:", supabaseUser.id);
         
         // Verificar se o client_id está nos metadados e atualizar se necessário
         const userMeta = supabaseUser.user_metadata || {};
         if (!userMeta.client_id || userMeta.client_id !== userId) {
-          logger.debug("Atualizando metadados do usuário para incluir client_id", {
-            userId: getObfuscatedId(supabaseUser.id),
-            clientId: getObfuscatedId(userId),
-            tags: ['auth', 'supabase']
-          });
+          console.log("[AUTH] Atualizando metadados do usuário para incluir client_id");
           
           const { error: updateError } = await supabase.auth.updateUser({
             data: {
@@ -173,52 +125,31 @@ export const setSessionData = async (userId: string, userName: string) => {
           });
           
           if (updateError) {
-            logger.error("Erro ao atualizar metadados do usuário", updateError as Error, {
-              userId: getObfuscatedId(userId),
-              tags: ['auth', 'supabase', 'error']
-            });
+            console.error("[AUTH] Erro ao atualizar metadados do usuário:", updateError);
           } else {
-            logger.debug("Metadados do usuário atualizados com sucesso", {
-              userId: getObfuscatedId(userId),
-              tags: ['auth', 'supabase']
-            });
+            console.log("[AUTH] Metadados do usuário atualizados com sucesso");
             
             // Recarregar a sessão para garantir que os metadados sejam atualizados
             const { error: refreshError } = await supabase.auth.refreshSession();
             if (refreshError) {
-              logger.error("Erro ao atualizar sessão", refreshError as Error, {
-                userId: getObfuscatedId(supabaseUser.id),
-                tags: ['auth', 'supabase', 'error']
-              });
+              console.error("[AUTH] Erro ao atualizar sessão:", refreshError);
             } else {
-              logger.debug("Sessão atualizada com sucesso", {
-                userId: getObfuscatedId(supabaseUser.id),
-                tags: ['auth', 'supabase']
-              });
+              console.log("[AUTH] Sessão atualizada com sucesso");
             }
           }
         }
       }
     } catch (authError) {
-      logger.error("Erro ao autenticar no Supabase", authError as Error, {
-        userId: getObfuscatedId(userId),
-        tags: ['auth', 'supabase', 'error']
-      });
+      console.error("[AUTH] Erro ao autenticar no Supabase:", authError);
       // Continuar mesmo se houver erro na autenticação do Supabase
     }
     
-    logger.debug("Session data set successfully", {
-      userId: getObfuscatedId(userId),
-      tags: ['auth', 'session']
-    });
+    console.log("[AUTH] Session data set successfully");
     
     // Notify all components that auth state changed
     notifyAuthStateChange();
   } catch (error) {
-    logger.error("Error setting session data", error as Error, {
-      userId: getObfuscatedId(userId),
-      tags: ['auth', 'session', 'error']
-    });
+    console.error("[AUTH] Error setting session data:", error);
     throw new Error('Erro ao configurar sessão do usuário');
   }
 };

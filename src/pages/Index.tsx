@@ -10,13 +10,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import type { Transaction } from '@/components/dashboard/TransactionList';
 import { useToast } from '@/hooks/use-toast';
 import { parseBrazilianCurrency } from '@/utils/currency';
-import { logger, LogData } from '@/utils/security/secureLogger';
-
-const getObfuscatedId = (id: string | null | undefined): string => {
-  if (!id) return 'unknown';
-  if (id.length <= 8) return '***' + id.slice(-4);
-  return id.slice(0, 4) + '...' + id.slice(-4);
-};
 
 const Index: React.FC = () => {
   const { user } = useAuth();
@@ -26,21 +19,12 @@ const Index: React.FC = () => {
     queryKey: ['recent-transactions', user?.id],
     queryFn: async () => {
       if (!user) {
-        logger.debug('Nenhum usuário autenticado, retornando transações vazias', {
-          tags: ['transactions', 'query', 'auth']
-        });
+        console.log('[QUERY] No user, returning empty transactions');
         return [];
       }
       
-      const obfuscatedId = getObfuscatedId(user.id);
-      logger.debug('Buscando transações recentes', {
-        userId: obfuscatedId,
-        table: 'donna_lancamentos',
-        limit: 5,
-        tags: ['transactions', 'query']
-      });
+      console.log('[QUERY] Fetching transactions for user:', user.id);
       
-      const queryName = 'recent-transactions';
       const { data, error } = await debugSupabaseQuery(
         supabase
           .from('donna_lancamentos')
@@ -48,33 +32,20 @@ const Index: React.FC = () => {
           .eq('client_id', user.id)
           .order('created_at', { ascending: false })
           .limit(5),
-        queryName
+        'recent-transactions'
       );
         
       if (error) {
-        const errorMessage = `Erro ao buscar transações: ${error.message}`;
-        logger.error(errorMessage, new Error(errorMessage), {
-          tags: ['transactions', 'query', 'error'],
-          query: queryName,
-          userId: obfuscatedId
-        });
-        
+        console.error('[QUERY] Error fetching transactions:', error);
         toast({
           title: "Erro ao carregar transações",
-          description: "Ocorreu um erro ao buscar suas transações recentes. Por favor, tente novamente.",
+          description: error.message,
           variant: "destructive"
         });
-        
-        throw new Error(errorMessage);
+        throw error;
       }
       
-      if (process.env.NODE_ENV === 'development') {
-        logger.debug(`Transações encontradas: ${data.length}`, {
-          count: data.length,
-          userId: obfuscatedId,
-          tags: ['transactions', 'query', 'debug']
-        });
-      }
+      console.log('[QUERY] Transactions data:', data);
       
       return data.map((item: any) => {
         // Explicitly map the natureza value to the correct transaction type

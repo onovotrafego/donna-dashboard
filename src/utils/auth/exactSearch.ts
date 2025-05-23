@@ -1,14 +1,6 @@
 
 import { UserRecord } from './types';
 import { executeQuery, executeInsensitiveQuery } from './searchUtils';
-import { logger } from '@/utils/security/secureLogger';
-
-// Função para ofuscar IDs sensíveis
-const getObfuscatedId = (id: string | null | undefined): string => {
-  if (!id) return 'unknown';
-  if (id.length <= 8) return '***' + id.slice(-4);
-  return id.slice(0, 4) + '...' + id.slice(-4);
-};
 
 /**
  * Core search functions for exact matches
@@ -16,10 +8,7 @@ const getObfuscatedId = (id: string | null | undefined): string => {
 
 // Função para buscar usuário pelo remotejid exato
 export const searchUserByExactRemoteJid = async (remotejid: string): Promise<UserRecord | null> => {
-  logger.debug(`Trying exact match for remotejid`, {
-    remotejid: getObfuscatedId(remotejid),
-    tags: ['auth', 'search']
-  });
+  console.log(`[AUTH] Trying exact match for remotejid: ${remotejid}`);
   
   const result = await executeQuery(
     'remotejid',
@@ -28,10 +17,7 @@ export const searchUserByExactRemoteJid = async (remotejid: string): Promise<Use
   );
   
   if (result) {
-    logger.debug(`Found user with exact match`, {
-      userId: getObfuscatedId(result.id),
-      tags: ['auth', 'search']
-    });
+    console.log(`[AUTH] Found user with exact match: ${result.id}`);
   }
   
   return result;
@@ -39,10 +25,7 @@ export const searchUserByExactRemoteJid = async (remotejid: string): Promise<Use
 
 // Função para buscar usuário por formato alternativo de remotejid
 export const searchUserByAlternativeFormat = async (originalRemotejid: string, formattedRemotejid: string): Promise<UserRecord | null> => {
-  logger.debug(`Trying alternative format match`, {
-    formattedRemotejid: getObfuscatedId(formattedRemotejid),
-    tags: ['auth', 'search']
-  });
+  console.log(`[AUTH] Trying alternative format match: ${formattedRemotejid}`);
   
   const result = await executeQuery(
     'remotejid',
@@ -51,10 +34,7 @@ export const searchUserByAlternativeFormat = async (originalRemotejid: string, f
   );
   
   if (result) {
-    logger.debug(`Found user with alternative format`, {
-      userId: getObfuscatedId(result.id),
-      tags: ['auth', 'search']
-    });
+    console.log(`[AUTH] Found user with alternative format: ${result.id}`);
   }
   
   return result;
@@ -66,10 +46,7 @@ export const searchUserByAlternativeFormat = async (originalRemotejid: string, f
 
 // Função para buscar usuário pelo email exato
 export const searchUserByExactEmail = async (email: string): Promise<UserRecord | null> => {
-  logger.debug(`Trying exact match for email`, {
-    email: email.substring(0, 3) + '***' + (email.includes('@') ? email.substring(email.indexOf('@')) : ''),
-    tags: ['auth', 'search']
-  });
+  console.log(`[AUTH] Trying exact match for email: ${email}`);
   
   const result = await executeQuery(
     'email',
@@ -78,10 +55,7 @@ export const searchUserByExactEmail = async (email: string): Promise<UserRecord 
   );
   
   if (result) {
-    logger.debug(`Found user with exact email match`, {
-      userId: getObfuscatedId(result.id),
-      tags: ['auth', 'search']
-    });
+    console.log(`[AUTH] Found user with exact email match: ${result.id}`);
   }
   
   return result;
@@ -89,10 +63,7 @@ export const searchUserByExactEmail = async (email: string): Promise<UserRecord 
 
 // Função para buscar usuário pelo email com case insensitive
 export const searchUserByInsensitiveEmail = async (email: string): Promise<UserRecord | null> => {
-  logger.debug(`Trying case-insensitive search for email`, {
-    email: email.substring(0, 3) + '***' + (email.includes('@') ? email.substring(email.indexOf('@')) : ''),
-    tags: ['auth', 'search']
-  });
+  console.log(`[AUTH] Trying case-insensitive search for email: ${email}`);
   
   const result = await executeInsensitiveQuery(
     'email',
@@ -101,10 +72,7 @@ export const searchUserByInsensitiveEmail = async (email: string): Promise<UserR
   );
   
   if (result) {
-    logger.debug(`Found user with case-insensitive email match`, {
-      userId: getObfuscatedId(result.id),
-      tags: ['auth', 'search']
-    });
+    console.log(`[AUTH] Found user with case-insensitive email match: ${result.id}`);
   }
   
   return result;
