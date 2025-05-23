@@ -1,6 +1,14 @@
 
 import { supabase } from "@/integrations/supabase/client";
 import { UserRecord } from './types';
+import { logger } from '@/utils/security/secureLogger';
+
+// Função para ofuscar IDs sensíveis
+const getObfuscatedId = (id: string | null | undefined): string => {
+  if (!id) return 'unknown';
+  if (id.length <= 8) return '***' + id.slice(-4);
+  return id.slice(0, 4) + '...' + id.slice(-4);
+};
 
 /**
  * Verificar IDs de cliente presentes no aplicativo
@@ -8,21 +16,33 @@ import { UserRecord } from './types';
  */
 export const verifyClientIds = () => {
   if (typeof window === 'undefined') {
-    console.log('[UTILS] Executando no servidor, localStorage não disponível');
+    logger.debug('Executando no servidor, localStorage não disponível', {
+      tags: ['auth', 'utils']
+    });
     return;
   }
 
   try {
     const localStorageId = localStorage.getItem('user_id');
-    console.log('[UTILS] Client ID no localStorage:', localStorageId);
+    logger.debug('Client ID no localStorage', {
+      clientId: getObfuscatedId(localStorageId),
+      tags: ['auth', 'utils']
+    });
     
     if (localStorageId) {
-      console.log('[UTILS] Client ID encontrado no localStorage');
+      logger.debug('Client ID encontrado no localStorage', {
+        clientId: getObfuscatedId(localStorageId),
+        tags: ['auth', 'utils']
+      });
     } else {
-      console.log('[UTILS] Nenhum client_id encontrado no localStorage');
+      logger.debug('Nenhum client_id encontrado no localStorage', {
+        tags: ['auth', 'utils']
+      });
     }
   } catch (error) {
-    console.error('[UTILS] Erro ao acessar localStorage:', error);
+    logger.error('Erro ao acessar localStorage', error as Error, {
+      tags: ['auth', 'utils', 'error']
+    });
   }
 };
 
@@ -45,7 +65,15 @@ const safeUserRecord = (data: any): UserRecord => {
  * Executa uma consulta padrão ao banco de dados
  */
 export const executeQuery = async (field: string, value: string, functionName: string): Promise<UserRecord | null> => {
-  console.log(`[AUTH] ${functionName}: Buscando por ${field}=${value}`);
+  const maskedValue = field === 'email' 
+    ? value.substring(0, 3) + '***' + (value.includes('@') ? value.substring(value.indexOf('@')) : '')
+    : getObfuscatedId(value);
+    
+  logger.debug(`${functionName}: Buscando por ${field}`, {
+    field,
+    value: maskedValue,
+    tags: ['auth', 'search']
+  });
   
   const { data, error } = await supabase
     .from('donna_clientes')
@@ -54,16 +82,28 @@ export const executeQuery = async (field: string, value: string, functionName: s
     .limit(1);
     
   if (error) {
-    console.error(`[AUTH] ${functionName} error:`, error);
+    logger.error(`${functionName} error`, error as Error, {
+      field,
+      value: maskedValue,
+      tags: ['auth', 'search', 'error']
+    });
     return null;
   }
   
   if (data && data.length > 0) {
-    console.log(`[AUTH] ${functionName}: Encontrado usuário com id=${data[0].id}`);
+    logger.debug(`${functionName}: Encontrado usuário`, {
+      userId: getObfuscatedId(data[0].id),
+      field,
+      tags: ['auth', 'search']
+    });
     return safeUserRecord(data[0]);
   }
   
-  console.log(`[AUTH] ${functionName}: Nenhum usuário encontrado`);
+  logger.debug(`${functionName}: Nenhum usuário encontrado`, {
+    field,
+    value: maskedValue,
+    tags: ['auth', 'search']
+  });
   return null;
 };
 

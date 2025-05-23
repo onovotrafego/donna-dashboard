@@ -4,6 +4,14 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { AUTH_STATE_CHANGE_EVENT, clearSessionData } from '@/utils/auth';
+import { logger } from '@/utils/security/secureLogger';
+
+// Função para ofuscar IDs sensíveis
+const getObfuscatedId = (id: string | null | undefined): string => {
+  if (!id) return 'unknown';
+  if (id.length <= 8) return '***' + id.slice(-4);
+  return id.slice(0, 4) + '...' + id.slice(-4);
+};
 
 interface User {
   id: string;
@@ -41,19 +49,31 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         const userId = localStorage.getItem('user_id');
         const userName = localStorage.getItem('user_name');
         
-        console.log('[AUTH] Checking local storage for user:', userId, userName);
+        logger.debug('Checking local storage for user', {
+          userId: getObfuscatedId(userId),
+          hasUserName: !!userName,
+          tags: ['auth', 'session']
+        });
         
         if (userId && userName) {
-          console.log('[AUTH] Restored user session:', userId, userName);
+          logger.debug('Restored user session', {
+            userId: getObfuscatedId(userId),
+            userName: userName.substring(0, 1) + '***',
+            tags: ['auth', 'session']
+          });
           setUser({ id: userId, name: userName });
           setIsAuthenticated(true);
         } else {
-          console.log('[AUTH] No active session found');
+          logger.debug('No active session found', {
+            tags: ['auth', 'session']
+          });
           setUser(null);
           setIsAuthenticated(false);
         }
       } catch (error) {
-        console.error('[AUTH] Error loading user session:', error);
+        logger.error('Error loading user session', error as Error, {
+          tags: ['auth', 'session', 'error']
+        });
         setUser(null);
         setIsAuthenticated(false);
       } finally {
@@ -67,7 +87,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     // Set up Supabase auth state change listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
-        console.log('[AUTH] Supabase auth state changed:', event, session?.user?.id);
+        logger.debug('Supabase auth state changed', {
+          event,
+          userId: getObfuscatedId(session?.user?.id),
+          tags: ['auth', 'supabase']
+        });
         
         // We don't want to update our local state directly from here
         // as our app uses a custom auth mechanism alongside Supabase
@@ -78,14 +102,19 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     // Listen for storage events (for multi-tab support)
     const handleStorageChange = (event) => {
       if (event.key === 'user_id' || event.key === 'user_name' || event.key === null) {
-        console.log('[AUTH] Storage change detected, updating auth state');
+        logger.debug('Storage change detected, updating auth state', {
+          key: event.key,
+          tags: ['auth', 'storage']
+        });
         loadUser();
       }
     };
     
     // Listen for our custom auth state change event
     const handleAuthStateChange = () => {
-      console.log('[AUTH] Auth state change event detected');
+      logger.debug('Auth state change event detected', {
+        tags: ['auth', 'event']
+      });
       loadUser();
     };
     
@@ -112,7 +141,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       
       navigate('/auth');
     } catch (error) {
-      console.error('[AUTH] Error during logout:', error);
+      logger.error('Error during logout', error as Error, {
+        tags: ['auth', 'logout', 'error']
+      });
       toast({
         title: "Erro ao sair",
         description: "Não foi possível efetuar o logout corretamente.",

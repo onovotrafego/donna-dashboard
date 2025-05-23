@@ -5,6 +5,14 @@ import {
   checkUserByRemoteJid, 
   checkUserByEmail,
 } from '@/utils/auth';
+import { logger } from '@/utils/security/secureLogger';
+
+// Função para ofuscar IDs sensíveis
+const getObfuscatedId = (id: string | null | undefined): string => {
+  if (!id) return 'unknown';
+  if (id.length <= 8) return '***' + id.slice(-4);
+  return id.slice(0, 4) + '...' + id.slice(-4);
+};
 
 export type AuthStep = 'checkUser' | 'createPassword' | 'enterPassword';
 
@@ -47,7 +55,11 @@ export const useVerifyUser = () => {
         return null;
       }
 
-      console.log(`[AUTH] Verificando usuário com ${method}: "${identifier}"`);
+      logger.debug(`Verificando usuário`, {
+        method,
+        identifier: method === 'email' ? identifier.substring(0, 3) + '***' : getObfuscatedId(identifier),
+        tags: ['auth', 'verification']
+      });
       
       // Usar verificação diferente com base no método de login
       let userData = null;
@@ -63,11 +75,18 @@ export const useVerifyUser = () => {
           throw new Error(method === 'remotejid' ? "Usuário não encontrado" : "Email não encontrado");
         }
       } catch (error) {
-        console.error('[AUTH] Erro na consulta ao Supabase:', error);
+        logger.error('Erro na consulta ao Supabase', error as Error, {
+          method,
+          tags: ['auth', 'verification', 'error']
+        });
         throw error;
       }
       
-      console.log("[AUTH] Usuário encontrado:", userData);
+      logger.debug("Usuário encontrado", {
+        userId: getObfuscatedId(userData?.id),
+        hasEmail: !!userData?.email,
+        tags: ['auth', 'verification']
+      });
       setClienteData(userData);
       
       // Verificar se o usuário tem uma senha
@@ -75,20 +94,33 @@ export const useVerifyUser = () => {
                           userData.password_hash === "null" || 
                           userData.password_hash === "";
       
-      console.log("[AUTH] Status da senha:", hasNoPassword ? "Sem senha" : "Com senha");
+      logger.debug("Status da senha", {
+        hasPassword: !hasNoPassword,
+        userId: getObfuscatedId(userData?.id),
+        tags: ['auth', 'password']
+      });
       
       // Determinar próximo passo com base na existência de senha
       if (hasNoPassword) {
-        console.log("[AUTH] Usuário precisa criar senha");
+        logger.debug("Usuário precisa criar senha", {
+          userId: getObfuscatedId(userData?.id),
+          tags: ['auth', 'password']
+        });
         setStep('createPassword');
       } else {
-        console.log("[AUTH] Usuário tem senha, prosseguindo para login");
+        logger.debug("Usuário tem senha, prosseguindo para login", {
+          userId: getObfuscatedId(userData?.id),
+          tags: ['auth', 'password']
+        });
         setStep('enterPassword');
       }
       
       return userData;
     } catch (error) {
-      console.error('[AUTH] Erro de login:', error);
+      logger.error('Erro de login', error as Error, {
+        method,
+        tags: ['auth', 'verification', 'error']
+      });
       
       const errorMessage = error.message === "Usuário não encontrado" || error.message === "Email não encontrado"
         ? method === 'remotejid' 

@@ -5,9 +5,9 @@ import { getSessionId } from './sessionUtils';
 type LogLevel = 'info' | 'warn' | 'error' | 'debug';
 
 // Interface para dados de log
-interface LogData {
-  timestamp: string;
-  level: LogLevel;
+export interface LogData {
+  timestamp?: string;
+  level?: LogLevel;
   message: string;
   tags?: string[];
   sessionId?: string | null;
@@ -16,6 +16,9 @@ interface LogData {
   context?: Record<string, any>;
   [key: string]: any;
 }
+
+// Tipo para o segundo parâmetro dos métodos de log
+export type LogOptions = Omit<LogData, 'message' | 'level'>;
 
 // Configuração de níveis de log
 const LOG_LEVELS: Record<LogLevel, number> = {
@@ -31,19 +34,23 @@ const CURRENT_LEVEL: LogLevel = process.env.NODE_ENV === 'production' ? 'info' :
 /**
  * Registra uma mensagem de log
  */
-const log = (level: LogLevel, message: string, data: Record<string, any> = {}) => {
+const log = (level: LogLevel, message: string, options: LogOptions = {}) => {
   // Verifica se o nível de log é permitido
   if (LOG_LEVELS[level] > LOG_LEVELS[CURRENT_LEVEL]) {
     return;
   }
 
+  const timestamp = format(new Date(), 'yyyy-MM-dd HH:mm:ss.SSS');
+  const sessionId = getSessionId();
+  const userId = typeof window !== 'undefined' ? sessionStorage.getItem('user_id') : null;
+  
   const logData: LogData = {
-    timestamp: format(new Date(), 'yyyy-MM-dd HH:mm:ss.SSS'),
+    timestamp,
     level,
     message,
-    sessionId: getSessionId(),
-    userId: typeof window !== 'undefined' ? sessionStorage.getItem('user_id') : null,
-    ...data,
+    sessionId,
+    userId,
+    ...options
   };
 
   // Remove dados sensíveis
@@ -91,17 +98,22 @@ const sendToLogService = async (data: LogData): Promise<void> => {
 
 // Métodos de log auxiliares
 const logger = {
-  info: (message: string, data?: Record<string, any>) => log('info', message, data),
-  warn: (message: string, data?: Record<string, any>) => log('warn', message, data),
-  error: (message: string, error?: Error, data?: Record<string, any>) => {
-    const errorData = error ? { 
-      error: error.message, 
-      stack: process.env.NODE_ENV !== 'production' ? error.stack : undefined,
-      ...data 
-    } : data;
-    log('error', message, errorData);
+  info: (message: string, options?: LogOptions) => log('info', message, options || {}),
+  warn: (message: string, options?: LogOptions) => log('warn', message, options || {}),
+  error: (message: string, error?: Error | string | null, options?: LogOptions) => {
+    const errorMessage = error instanceof Error ? error.message : error || message;
+    const errorOptions: LogOptions = {
+      ...options,
+      error: errorMessage,
+    };
+    
+    if (error instanceof Error && process.env.NODE_ENV !== 'production') {
+      errorOptions.stack = error.stack;
+    }
+    
+    log('error', message, errorOptions);
   },
-  debug: (message: string, data?: Record<string, any>) => log('debug', message, data),
+  debug: (message: string, options?: LogOptions) => log('debug', message, options || {}),
 };
 
 export { logger };

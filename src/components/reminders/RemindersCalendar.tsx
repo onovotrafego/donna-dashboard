@@ -4,6 +4,14 @@ import { format, isSameDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Calendar } from '@/components/ui/calendar';
 import type { Reminder } from '@/types/reminder';
+import { logger } from '@/utils/security/secureLogger';
+
+// Função para ofuscar IDs sensíveis
+const getObfuscatedId = (id: string | null | undefined): string => {
+  if (!id) return 'unknown';
+  if (id.length <= 8) return '***' + id.slice(-4);
+  return id.slice(0, 4) + '...' + id.slice(-4);
+};
 
 interface RemindersCalendarProps {
   reminders: Reminder[];
@@ -16,27 +24,30 @@ const RemindersCalendar: React.FC<RemindersCalendarProps> = ({
   selectedDate,
   onSelectDate 
 }) => {
-  console.log('RemindersCalendar - Rendering with reminders count:', reminders.length);
+  logger.debug('RemindersCalendar - Rendering', {
+    count: reminders.length,
+    tags: ['reminders', 'calendar']
+  });
   
-  // Exibe os IDs dos reminders para debug
+  // Verificação de dados de lembretes (apenas em desenvolvimento)
   useEffect(() => {
-    if (reminders.length > 0) {
-      console.log('RemindersCalendar - Exemplo de reminder carregado:', {
-        id: reminders[0].id,
-        client_id: reminders[0].client_id,
-        data: reminders[0].lembrete_data,
-        mensagem: reminders[0].mensagem_lembrete.substring(0, 30) + '...'
+    if (reminders.length > 0 && process.env.NODE_ENV === 'development') {
+      logger.debug('RemindersCalendar - Dados de lembretes', {
+        count: reminders.length,
+        hasData: true,
+        tags: ['reminders', 'calendar']
       });
-      
-      // Log client_ids para verificar se estão sendo carregados corretamente
-      const uniqueClientIds = [...new Set(reminders.map(r => r.client_id))];
-      console.log('RemindersCalendar - Client IDs únicos nos reminders:', uniqueClientIds);
       
       // Verificar se o client_id no localStorage corresponde aos reminders
       const localStorageClientId = localStorage.getItem('user_id');
-      console.log('RemindersCalendar - localStorage client_id:', localStorageClientId);
-      console.log('RemindersCalendar - Todos os reminders são do cliente atual:', 
-        reminders.every(r => r.client_id === localStorageClientId));
+      const allRemindersMatchClient = reminders.every(r => r.client_id === localStorageClientId);
+      
+      if (!allRemindersMatchClient) {
+        logger.warn('RemindersCalendar - Inconsistência de dados', {
+          clientIdMatches: allRemindersMatchClient,
+          tags: ['reminders', 'calendar', 'warning']
+        });
+      }
     }
   }, [reminders]);
   
@@ -49,7 +60,11 @@ const RemindersCalendar: React.FC<RemindersCalendarProps> = ({
       const [year, month, day] = reminder.lembrete_data.split('-').map(Number);
       const reminderDate = new Date(year, month - 1, day);
       if (isNaN(reminderDate.getTime())) {
-        console.warn('RemindersCalendar - Invalid date in reminder:', reminder);
+        logger.warn('RemindersCalendar - Invalid date in reminder', {
+          reminderId: reminder.id,
+          date: reminder.lembrete_data,
+          tags: ['reminders', 'calendar', 'warning']
+        });
         return;
       }
       
@@ -61,11 +76,18 @@ const RemindersCalendar: React.FC<RemindersCalendarProps> = ({
       remindersByDate[dateKey].push(reminder);
       
     } catch (error) {
-      console.error('RemindersCalendar - Error processing reminder:', error, reminder);
+      logger.error('RemindersCalendar - Error processing reminder', error as Error, {
+        reminderId: reminder.id,
+        date: reminder.lembrete_data,
+        tags: ['reminders', 'calendar', 'error']
+      });
     }
   });
   
-  console.log('RemindersCalendar - Datas com lembretes:', Object.keys(remindersByDate).length);
+  logger.debug('RemindersCalendar - Processamento concluído', {
+    datesWithReminders: Object.keys(remindersByDate).length,
+    tags: ['reminders', 'calendar']
+  });
   
   // Encontra o dia com mais lembretes para escala visual
   const maxRemindersCount = Math.max(

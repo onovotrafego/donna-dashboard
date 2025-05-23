@@ -1,6 +1,14 @@
 
 import { useAuthForm } from './useAuthForm';
 import { useAuthOperations } from './useAuthOperations';
+import { logger } from '@/utils/security/secureLogger';
+
+// Função para ofuscar IDs sensíveis
+const getObfuscatedId = (id: string | null | undefined): string => {
+  if (!id) return 'unknown';
+  if (id.length <= 8) return '***' + id.slice(-4);
+  return id.slice(0, 4) + '...' + id.slice(-4);
+};
 
 /**
  * Hook principal que combina a gestão de formulário e operações de autenticação
@@ -19,12 +27,19 @@ export const useAuth = () => {
       ? formState.remotejid 
       : formState.email;
     
-    console.log(`[AUTH] Checking if user exists with ${formState.loginMethod}: "${identifier}"`);
+    logger.debug(`Checking if user exists`, {
+      method: formState.loginMethod,
+      identifier: formState.loginMethod === 'email' ? identifier.substring(0, 3) + '***' : getObfuscatedId(identifier),
+      tags: ['auth', 'verification']
+    });
     
     const user = await authOps.verifyUserExists(identifier, formState.loginMethod);
     
     if (user) {
-      console.log("[AUTH] User found:", user.id);
+      logger.debug("User found", {
+        userId: getObfuscatedId(user.id),
+        tags: ['auth', 'verification']
+      });
     }
   };
 
@@ -33,7 +48,10 @@ export const useAuth = () => {
     e.preventDefault();
     formState.clearError();
     
-    console.log("[AUTH] Creating password for user:", authOps.clienteData?.id);
+    logger.debug("Creating password for user", {
+      userId: getObfuscatedId(authOps.clienteData?.id),
+      tags: ['auth', 'password']
+    });
     
     await authOps.createUserPasswordOp(
       authOps.clienteData.id, 
@@ -47,7 +65,10 @@ export const useAuth = () => {
     e.preventDefault();
     formState.clearError();
     
-    console.log("[AUTH] Attempting login for user:", authOps.clienteData?.id);
+    logger.debug("Attempting login for user", {
+      userId: getObfuscatedId(authOps.clienteData?.id),
+      tags: ['auth', 'login']
+    });
     
     await authOps.loginUser(formState.password);
   };
