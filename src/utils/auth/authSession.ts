@@ -1,5 +1,6 @@
 
 import { supabase } from '@/integrations/supabase/client';
+import { logger } from '@/utils/security/secureLogger';
 
 // Custom event name for authentication state changes
 export const AUTH_STATE_CHANGE_EVENT = 'auth_state_change';
@@ -153,21 +154,48 @@ export const setSessionData = async (userId: string, userName: string) => {
   }
 };
 
-// Clear session data
+/**
+ * Clear session data
+ */
 export const clearSessionData = async () => {
   try {
+    logger.info('Iniciando processo de logout', {
+      tags: ['auth', 'logout']
+    });
+    
     // Sign out from Supabase
     await supabase.auth.signOut();
+    
+    // Clear secure session data
+    try {
+      // Se você tiver um serviço de sessão seguro, limpe aqui
+      // Ex: await secureSessionService.clearSession();
+    } catch (sessionError) {
+      const errorMessage = 'Erro ao limpar sessão segura: ' + 
+        (sessionError instanceof Error ? sessionError.message : String(sessionError));
+      logger.error(errorMessage);
+    }
+    
+    // Clear local storage items
+    localStorage.removeItem('auth_token');
+    localStorage.removeItem('auth_expires_at');
+    localStorage.removeItem('user_id');
+    localStorage.removeItem('user_name');
+    
+    // Clear session storage
+    sessionStorage.clear();
+    
+    logger.info('Logout concluído com sucesso', {
+      tags: ['auth', 'logout', 'success']
+    });
+    
   } catch (error) {
-    console.error("[AUTH] Error during Supabase signout:", error);
+    const errorMessage = 'Erro durante o logout: ' + 
+      (error instanceof Error ? error.message : 'Erro desconhecido');
+    logger.error(errorMessage);
+    throw error; // Relança o erro para tratamento adicional, se necessário
+  } finally {
+    // Notify all components that auth state changed
+    notifyAuthStateChange();
   }
-  
-  // Also clear local storage items
-  localStorage.removeItem('auth_token');
-  localStorage.removeItem('auth_expires_at');
-  localStorage.removeItem('user_id');
-  localStorage.removeItem('user_name');
-  
-  // Notify all components that auth state changed
-  notifyAuthStateChange();
 };

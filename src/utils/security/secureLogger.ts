@@ -9,8 +9,11 @@ interface LogData {
   timestamp: string;
   level: LogLevel;
   message: string;
+  tags?: string[];
   sessionId?: string | null;
   userId?: string | null;
+  error?: Error | string | null;
+  context?: Record<string, any>;
   [key: string]: any;
 }
 
